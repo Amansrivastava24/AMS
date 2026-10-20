@@ -227,4 +227,16 @@ class UserRoutesSpec extends AnyFunSuite with Matchers with ScalatestRouteTest {
       status shouldBe StatusCodes.Forbidden
     }
   }
+
+  test("GET /api/custodians returns all active users regardless of role") {
+    Get("/api/custodians") ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~> userRoutes.route ~> check {
+      status shouldBe StatusCodes.OK
+      val res = responseAs[String]
+      // Should include users from multiple roles, not just CUSTODIAN
+      res should include("test_admin@example.com")
+      res should include("test_custodian1@example.com")
+      res should include("test_general@example.com")
+    }
+  }
 }

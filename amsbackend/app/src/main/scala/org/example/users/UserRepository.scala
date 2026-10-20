@@ -202,7 +202,7 @@ final class UserRepository(
 
   def listCustodians(): Future[Seq[UserResponse]] = {
     val q = userDetailsQuery
-      .filter { case (u, r, _) => r === "CUSTODIAN" && u.status === "ACTIVE" }
+      .filter { case (u, _, _) => u.status === "ACTIVE" }
       .sortBy { case (u, _, _) => u.name.asc }
       .result
 
