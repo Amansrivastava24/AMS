@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { StatusBadge } from '../common/StatusBadge';
 import logoImg from '../../assets/landisgyr-logo.png';
 
-export function Topbar({ onOpenMobile, title }) {
+export function Topbar({ onOpenMobile, title, collapsed, onToggleCollapse }) {
   const { user, role } = useAuth();
 
   // Query health status every 30s
@@ -20,8 +20,8 @@ export function Topbar({ onOpenMobile, title }) {
 
   return (
     <header className="h-16 bg-white border-b border-ams-border flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-subtle">
-      {/* Left: Mobile hamburger & Page Title */}
-      <div className="flex items-center gap-3">
+      {/* Left: Mobile hamburger, Desktop sidebar toggle & Page Title */}
+      <div className="flex items-center gap-2.5">
         <button
           onClick={onOpenMobile}
           className="lg:hidden p-2 rounded-lg text-ams-muted hover:text-ams-text hover:bg-brand-very-light"
@@ -29,6 +29,18 @@ export function Topbar({ onOpenMobile, title }) {
         >
           <Menu className="w-5 h-5" />
         </button>
+
+        {/* Desktop sidebar toggle button */}
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="hidden lg:flex p-2 rounded-lg text-ams-muted hover:text-brand-deep hover:bg-brand-very-light transition-colors"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         <img src={logoImg} alt="Landis+Gyr" className="h-7 w-auto object-contain lg:hidden" />
         <div>
           <h1 className="text-lg font-bold text-ams-text tracking-tight leading-tight">

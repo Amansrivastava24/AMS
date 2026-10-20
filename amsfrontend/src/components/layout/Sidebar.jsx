@@ -23,11 +23,19 @@ import { StatusBadge } from '../common/StatusBadge';
 import { useToast } from '../common/Toast';
 import logoImg from '../../assets/landisgyr-logo.png';
 
-export function Sidebar({ mobileOpen, onCloseMobile }) {
+export function Sidebar({
+  mobileOpen,
+  onCloseMobile,
+  collapsed: externalCollapsed,
+  onToggleCollapse,
+}) {
   const { user, logout, role, updateUserProfile } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = externalCollapsed !== undefined ? externalCollapsed : internalCollapsed;
+  const toggleCollapse = onToggleCollapse || (() => setInternalCollapsed(!internalCollapsed));
+
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [editCity, setEditCity] = useState(user?.city || '');
   const [editCountry, setEditCountry] = useState(user?.country || '');
@@ -106,31 +114,54 @@ export function Sidebar({ mobileOpen, onCloseMobile }) {
         }`}
       >
         {/* Header / Brand */}
-        <div className="h-16 px-4 border-b border-ams-border flex items-center justify-between">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-9 h-9 rounded-lg bg-white border border-ams-border flex items-center justify-center p-1 shrink-0 shadow-subtle">
-              <img src={logoImg} alt="Landis+Gyr" className="w-full h-full object-contain" />
-            </div>
-            {!collapsed && (
-              <div className="truncate">
-                <span className="text-xs font-bold text-ams-text tracking-tight block truncate">
-                  Asset Management System
-                </span>
-                <span className="text-[10px] font-semibold text-brand-deep block leading-tight truncate">
-                  Intelligent Energy, Delivered.
-                </span>
+        <div
+          className={`h-16 border-b border-ams-border flex items-center transition-all ${
+            collapsed ? 'justify-center px-2' : 'justify-between px-4'
+          }`}
+        >
+          {!collapsed ? (
+            <>
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <div className="w-9 h-9 rounded-lg bg-white border border-ams-border flex items-center justify-center p-1 shrink-0 shadow-subtle">
+                  <img src={logoImg} alt="Landis+Gyr" className="w-full h-full object-contain" />
+                </div>
+                <div className="truncate">
+                  <span className="text-xs font-bold text-ams-text tracking-tight block truncate">
+                    Asset Management System
+                  </span>
+                  <span className="text-[10px] font-semibold text-brand-deep block leading-tight truncate">
+                    Intelligent Energy, Delivered.
+                  </span>
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Desktop collapse toggle */}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex p-1.5 rounded-md text-ams-muted hover:text-ams-text hover:bg-brand-very-light transition-colors"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
+              {/* Desktop collapse toggle */}
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                className="hidden lg:flex p-1.5 rounded-md text-ams-muted hover:text-ams-text hover:bg-brand-very-light transition-colors"
+                title="Collapse sidebar"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="p-1.5 rounded-lg text-ams-muted hover:text-brand-deep hover:bg-brand-very-light transition-colors flex items-center justify-center group"
+              title="Expand sidebar"
+            >
+              <div className="relative">
+                <div className="w-8 h-8 rounded-lg bg-white border border-ams-border flex items-center justify-center p-1 shadow-subtle group-hover:border-brand-deep transition-colors">
+                  <img src={logoImg} alt="Landis+Gyr" className="w-full h-full object-contain" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 bg-brand-light border border-brand-primary/30 rounded-full p-0.5 text-brand-deep shadow-xs">
+                  <ChevronRight className="w-2.5 h-2.5" />
+                </div>
+              </div>
+            </button>
+          )}
 
           {/* Mobile close button */}
           <button
@@ -153,7 +184,9 @@ export function Sidebar({ mobileOpen, onCloseMobile }) {
                   to={item.path}
                   onClick={onCloseMobile}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    `flex items-center ${
+                      collapsed ? 'justify-center px-2' : 'gap-3 px-3'
+                    } py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-brand-light text-brand-deep font-semibold shadow-subtle border border-brand-primary/20'
                         : 'text-ams-muted hover:text-ams-text hover:bg-brand-very-light'
