@@ -4,18 +4,17 @@ import org.example.common._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LocationService(
-    repository: LocationRepository
+    val repository: LocationRepository
 )(implicit executionContext: ExecutionContext) {
 
   private def validateRequest(req: LocationRequest): Option[String] = {
-    val cleanName = Option(req.name).map(_.trim).getOrElse("")
-    if (cleanName.isEmpty) Some("Location name must not be empty")
-    else if (cleanName.length > 100) Some("Location name must not exceed 100 characters")
-    else if (req.address.exists(_.length > 255)) Some("Address must not exceed 255 characters")
+    val cleanDesc = Option(req.description).map(_.trim).getOrElse("")
+    if (cleanDesc.isEmpty) Some("Location description must not be empty")
+    else if (cleanDesc.length > 255) Some("Location description must not exceed 255 characters")
+    else if (req.seatNo.exists(_.length > 50)) Some("Seat number must not exceed 50 characters")
+    else if (req.floorNo.exists(_.length > 50)) Some("Floor number must not exceed 50 characters")
     else if (req.city.exists(_.length > 100)) Some("City must not exceed 100 characters")
     else if (req.country.exists(_.length > 100)) Some("Country must not exceed 100 characters")
-    else if (req.floor.exists(_.length > 50)) Some("Floor must not exceed 50 characters")
-    else if (req.roomLocation.exists(_.length > 255)) Some("Room/location must not exceed 255 characters")
     else None
   }
 
@@ -25,10 +24,32 @@ final class LocationService(
   def getLocation(id: Long): Future[Option[Location]] =
     repository.findById(id)
 
-  def createLocation(req: LocationRequest): Future[Either[ServiceError, Location]] = {
+  def createLocation(
+      req: LocationRequest,
+      adminProfile: Option[(Option[String], Option[String])] = None
+  ): Future[Either[ServiceError, Location]] = {
     validateRequest(req) match {
       case Some(err) => Future.successful(Left(ValidationError(err)))
-      case None => repository.create(req).map(Right(_))
+      case None =>
+        adminProfile match {
+          case Some((adminCityOpt, adminCountryOpt)) =>
+            val city = adminCityOpt.map(_.trim).filter(_.nonEmpty)
+            val country = adminCountryOpt.map(_.trim).filter(_.nonEmpty)
+            if (city.isEmpty || country.isEmpty) {
+              Future.successful(
+                Left(
+                  ValidationError(
+                    "Admin profile is missing City or Country. Please update your profile before creating a location."
+                  )
+                )
+              )
+            } else {
+              val reqWithAdminProfile = req.copy(city = city, country = country)
+              repository.create(reqWithAdminProfile).map(Right(_))
+            }
+          case None =>
+            repository.create(req).map(Right(_))
+        }
     }
   }
 

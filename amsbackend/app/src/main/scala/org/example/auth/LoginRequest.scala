@@ -10,7 +10,9 @@ final case class AuthUserDto(
     employeeId: String,
     name: String,
     email: String,
-    role: String
+    role: String,
+    city: Option[String] = None,
+    country: Option[String] = None
 )
 
 final case class LoginResponse(

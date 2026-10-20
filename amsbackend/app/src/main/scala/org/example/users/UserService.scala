@@ -6,7 +6,7 @@ import org.example.common._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class UserService(
-    repository: UserRepository
+    val repository: UserRepository
 )(implicit executionContext: ExecutionContext) {
 
   private def toUserResponse(u: User, roleName: String, deptName: Option[String]): UserResponse =
@@ -19,7 +19,9 @@ final class UserService(
       roleId = u.roleId,
       departmentId = u.departmentId,
       departmentName = deptName,
-      status = u.status
+      status = u.status,
+      city = u.city,
+      country = u.country
     )
 
   def listUsers(
@@ -35,7 +37,7 @@ final class UserService(
     repository.findAll(page, pageSize, search, employeeId, email, roleName, departmentId, status)
 
   def getUser(id: Long): Future[Option[UserResponse]] =
-    repository.findById(id).map {
+    repository.findUserDetailsById(id).map {
       case Some((u, roleName, deptName)) => Some(toUserResponse(u, roleName, deptName))
       case None => None
     }
@@ -52,6 +54,8 @@ final class UserService(
     val cleanEmail = Option(req.email).map(_.trim.toLowerCase).getOrElse("")
     val cleanPassword = Option(req.password).map(_.trim).getOrElse("")
     val cleanStatus = req.status.map(_.trim.toUpperCase).getOrElse("ACTIVE")
+    val cleanCity = req.city.map(_.trim).filter(_.nonEmpty)
+    val cleanCountry = req.country.map(_.trim).filter(_.nonEmpty)
 
     if (cleanEmpId.isEmpty) Future.successful(Left(ValidationError("Employee ID is required")))
     else if (cleanName.isEmpty) Future.successful(Left(ValidationError("Name is required")))
@@ -95,7 +99,9 @@ final class UserService(
                           passwordHash = passwordHash,
                           roleId = role.id,
                           departmentId = req.cleanDepartmentId,
-                          status = cleanStatus
+                          status = cleanStatus,
+                          city = cleanCity,
+                          country = cleanCountry
                         )
                         repository.create(newUser).flatMap { created =>
                           getUser(created.id).map {
@@ -118,17 +124,19 @@ final class UserService(
       targetId: Long,
       req: UpdateUserRequest
   ): Future[Either[ServiceError, UserResponse]] = {
-    repository.findById(targetId).flatMap {
+    repository.findUserDetailsById(targetId).flatMap {
       case None =>
         Future.successful(Left(NotFoundError("User not found")))
       case Some((targetUser, targetRoleName, _)) =>
-        // Admin cannot modify Admin or Super Admin
-        if (callerRole == "ADMIN" && (targetRoleName == "ADMIN" || targetRoleName == "SUPER_ADMIN")) {
-          Future.successful(Left(ForbiddenError("Admins cannot modify Admin or Super Admin accounts")))
+        // Admin cannot modify other Admin or Super Admin
+        if (callerRole == "ADMIN" && callerId != targetId && (targetRoleName == "ADMIN" || targetRoleName == "SUPER_ADMIN")) {
+          Future.successful(Left(ForbiddenError("Admins cannot modify other Admin or Super Admin accounts")))
         } else {
           val cleanName = req.name.map(_.trim).filter(_.nonEmpty)
           val cleanEmail = req.email.map(_.trim.toLowerCase).filter(_.nonEmpty)
           val cleanPassword = req.password.map(_.trim).filter(_.nonEmpty)
+          val cityUpdate = if (req.city.isDefined) Some(req.city.map(_.trim).filter(_.nonEmpty)) else None
+          val countryUpdate = if (req.country.isDefined) Some(req.country.map(_.trim).filter(_.nonEmpty)) else None
 
           if (req.name.isDefined && cleanName.isEmpty) {
             Future.successful(Left(ValidationError("Name must not be empty")))
@@ -168,7 +176,9 @@ final class UserService(
                       name = cleanName,
                       email = cleanEmail,
                       departmentId = deptUpdate,
-                      passwordHash = passwordHash
+                      passwordHash = passwordHash,
+                      city = cityUpdate,
+                      country = countryUpdate
                     ).flatMap {
                       case Some(_) =>
                         getUser(targetId).map {
@@ -191,28 +201,40 @@ final class UserService(
       callerId: Long,
       callerRole: String,
       targetId: Long,
-      status: String
+      newStatus: String
   ): Future[Either[ServiceError, UserResponse]] = {
-    val cleanStatus = Option(status).map(_.trim.toUpperCase).getOrElse("")
+    val cleanStatus = Option(newStatus).map(_.trim.toUpperCase).getOrElse("")
     if (cleanStatus != "ACTIVE" && cleanStatus != "INACTIVE") {
       Future.successful(Left(ValidationError("Status must be ACTIVE or INACTIVE")))
     } else {
-      repository.findById(targetId).flatMap {
+      repository.findUserDetailsById(targetId).flatMap {
         case None =>
           Future.successful(Left(NotFoundError("User not found")))
         case Some((targetUser, targetRoleName, _)) =>
           if (callerRole == "ADMIN" && (targetRoleName == "ADMIN" || targetRoleName == "SUPER_ADMIN")) {
             Future.successful(Left(ForbiddenError("Admins cannot change status of Admin or Super Admin accounts")))
-          } else if (cleanStatus == "INACTIVE" && targetRoleName == "SUPER_ADMIN") {
-            repository.countActiveSuperAdmins().flatMap { activeSuperAdmins =>
-              if (activeSuperAdmins <= 1) {
-                Future.successful(Left(ConflictError("Cannot deactivate the last active Super Admin")))
+          } else {
+            val lastSuperAdminCheck =
+              if (targetRoleName == "SUPER_ADMIN" && cleanStatus == "INACTIVE" && targetUser.status == "ACTIVE") {
+                repository.countActiveSuperAdmins().map(_ <= 1)
               } else {
-                repository.updateStatus(targetId, cleanStatus).flatMap(_ => getUser(targetId).map(_.toRight(NotFoundError("User not found"))))
+                Future.successful(false)
+              }
+
+            lastSuperAdminCheck.flatMap { isLast =>
+              if (isLast) {
+                Future.successful(Left(ConflictError("Cannot deactivate the last active Super Admin account")))
+              } else {
+                repository.updateStatus(targetId, cleanStatus).flatMap {
+                  case 0 => Future.successful(Left(NotFoundError("User not found")))
+                  case _ =>
+                    getUser(targetId).map {
+                      case Some(resp) => Right(resp)
+                      case None => Left(NotFoundError("User not found"))
+                    }
+                }
               }
             }
-          } else {
-            repository.updateStatus(targetId, cleanStatus).flatMap(_ => getUser(targetId).map(_.toRight(NotFoundError("User not found"))))
           }
       }
     }
@@ -222,47 +244,42 @@ final class UserService(
       callerId: Long,
       callerRole: String,
       targetId: Long,
-      roleId: Long
+      newRoleId: Long
   ): Future[Either[ServiceError, UserResponse]] = {
-    repository.getRoleById(roleId).flatMap {
-      case None =>
-        Future.successful(Left(ValidationError(s"Role ID $roleId does not exist")))
-      case Some(newRole) =>
-        repository.findById(targetId).flatMap {
-          case None =>
-            Future.successful(Left(NotFoundError("User not found")))
-          case Some((targetUser, targetRoleName, _)) =>
-            // Admin role constraints
-            if (callerRole == "ADMIN") {
-              if (targetRoleName == "ADMIN" || targetRoleName == "SUPER_ADMIN") {
-                Future.successful(Left(ForbiddenError("Admins cannot change roles of Admin or Super Admin accounts")))
-              } else if (newRole.name == "ADMIN" || newRole.name == "SUPER_ADMIN") {
-                Future.successful(Left(ForbiddenError("Admins cannot grant privileged roles")))
-              } else {
-                repository.updateRole(targetId, roleId).flatMap(_ => getUser(targetId).map(_.toRight(NotFoundError("User not found"))))
-              }
-            } else if (callerRole == "SUPER_ADMIN") {
-              // Super Admin constraints
-              if (targetRoleName == "SUPER_ADMIN" && newRole.name != "SUPER_ADMIN") {
-                if (targetId != callerId) {
-                  Future.successful(Left(ForbiddenError("Super Admins cannot demote another Super Admin")))
+    if (callerRole != "SUPER_ADMIN") {
+      Future.successful(Left(ForbiddenError("Only Super Admins can change user roles")))
+    } else {
+      repository.getRoleById(newRoleId).flatMap {
+        case None =>
+          Future.successful(Left(ValidationError(s"Role ID $newRoleId does not exist")))
+        case Some(targetRole) =>
+          repository.findUserDetailsById(targetId).flatMap {
+            case None =>
+              Future.successful(Left(NotFoundError("User not found")))
+            case Some((targetUser, currentRoleName, _)) =>
+              val demotingLastSuperAdminCheck =
+                if (currentRoleName == "SUPER_ADMIN" && targetRole.name != "SUPER_ADMIN" && targetUser.status == "ACTIVE") {
+                  repository.countActiveSuperAdmins().map(_ <= 1)
                 } else {
-                  // Checking if this is the last Super Admin
-                  repository.countActiveSuperAdmins().flatMap { activeSuperAdmins =>
-                    if (activeSuperAdmins <= 1) {
-                      Future.successful(Left(ConflictError("Cannot demote the last active Super Admin")))
-                    } else {
-                      repository.updateRole(targetId, roleId).flatMap(_ => getUser(targetId).map(_.toRight(NotFoundError("User not found"))))
-                    }
+                  Future.successful(false)
+                }
+
+              demotingLastSuperAdminCheck.flatMap { isLast =>
+                if (isLast) {
+                  Future.successful(Left(ConflictError("Cannot change role of the last active Super Admin account")))
+                } else {
+                  repository.updateRole(targetId, newRoleId).flatMap {
+                    case 0 => Future.successful(Left(NotFoundError("User not found")))
+                    case _ =>
+                      getUser(targetId).map {
+                        case Some(resp) => Right(resp)
+                        case None => Left(NotFoundError("User not found"))
+                      }
                   }
                 }
-              } else {
-                repository.updateRole(targetId, roleId).flatMap(_ => getUser(targetId).map(_.toRight(NotFoundError("User not found"))))
               }
-            } else {
-              Future.successful(Left(ForbiddenError("Insufficient permissions to change roles")))
-            }
-        }
+          }
+      }
     }
   }
 
@@ -271,37 +288,40 @@ final class UserService(
       callerRole: String,
       targetId: Long
   ): Future[Either[ServiceError, Boolean]] = {
-    repository.findById(targetId).flatMap {
+    repository.findUserDetailsById(targetId).flatMap {
       case None =>
         Future.successful(Left(NotFoundError("User not found")))
       case Some((targetUser, targetRoleName, _)) =>
         if (callerRole == "ADMIN" && (targetRoleName == "ADMIN" || targetRoleName == "SUPER_ADMIN")) {
           Future.successful(Left(ForbiddenError("Admins cannot delete Admin or Super Admin accounts")))
-        } else if (callerRole == "SUPER_ADMIN" && targetRoleName == "SUPER_ADMIN" && targetId != callerId) {
-          Future.successful(Left(ForbiddenError("Super Admins cannot delete another Super Admin")))
-        } else if (targetRoleName == "SUPER_ADMIN") {
-          repository.countActiveSuperAdmins().flatMap { activeSuperAdmins =>
-            if (activeSuperAdmins <= 1) {
-              Future.successful(Left(ConflictError("Cannot delete the last active Super Admin")))
+        } else {
+          val lastSuperAdminCheck =
+            if (targetRoleName == "SUPER_ADMIN" && targetUser.status == "ACTIVE") {
+              repository.countActiveSuperAdmins().map(_ <= 1)
             } else {
-              proceedWithDelete(targetId)
+              Future.successful(false)
+            }
+
+          lastSuperAdminCheck.flatMap { isLast =>
+            if (isLast) {
+              Future.successful(Left(ConflictError("Cannot delete the last active Super Admin account")))
+            } else {
+              repository.isReferencedInAssetsOrItems(targetId).flatMap { isReferenced =>
+                if (isReferenced) {
+                  Future.successful(Left(ConflictError("Cannot delete user because they are assigned as an owner or custodian for existing assets")))
+                } else {
+                  repository.delete(targetId).map {
+                    case 0 => Left(NotFoundError("User not found"))
+                    case _ => Right(true)
+                  }
+                }
+              }
             }
           }
-        } else {
-          proceedWithDelete(targetId)
         }
     }
   }
 
-  private def proceedWithDelete(targetId: Long): Future[Either[ServiceError, Boolean]] = {
-    repository.isReferencedInAssetsOrItems(targetId).flatMap { referenced =>
-      if (referenced) {
-        Future.successful(Left(ConflictError("Cannot delete user referenced as owner or custodian of assets/items; deactivate the account instead")))
-      } else {
-        repository.delete(targetId).map(_ => Right(true))
-      }
-    }
-  }
-
-  def listCustodians(): Future[Seq[UserResponse]] = repository.listCustodians()
+  def listCustodians(): Future[Seq[UserResponse]] =
+    repository.listCustodians()
 }

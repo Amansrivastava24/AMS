@@ -195,22 +195,29 @@ final class AssetRoutes(service: AssetService)(
 
   // POST /api/assets
   private def createAssetRoute: Route =
-    adminOnly {
-      post {
-        entity(as[String]) { body =>
-          JsonSupport.fromJson[CreateAssetRequest](body) match {
-            case Success(req) =>
-              onComplete(service.createAsset(req.toAsset)) {
-                case Success(Right(created)) =>
-                  complete(JsonSupport.jsonResponse(StatusCodes.Created, created))
-                case Success(Left(err)) =>
-                  complete(JsonSupport.handleServiceError(err))
-                case Failure(ex) =>
-                  logger.error("Failed to create asset", ex)
-                  complete(JsonSupport.simpleError(StatusCodes.InternalServerError, "Failed to create asset"))
-              }
-            case Failure(_) =>
-              complete(JsonSupport.simpleError(StatusCodes.BadRequest, "Invalid JSON request"))
+    AuthDirectives.authenticated { claims =>
+      val callerRole = Option(claims.get("role", classOf[String])).getOrElse("")
+      val callerId = Try(claims.getSubject.toLong).getOrElse(0L)
+
+      if (!adminRoles.contains(callerRole) || callerId <= 0) {
+        AuthDirectives.forbidden
+      } else {
+        post {
+          entity(as[String]) { body =>
+            JsonSupport.fromJson[CreateAssetRequest](body) match {
+              case Success(req) =>
+                onComplete(service.createAsset(callerId, callerRole, req)) {
+                  case Success(Right(created)) =>
+                    complete(JsonSupport.jsonResponse(StatusCodes.Created, created))
+                  case Success(Left(err)) =>
+                    complete(JsonSupport.handleServiceError(err))
+                  case Failure(ex) =>
+                    logger.error("Failed to create asset", ex)
+                    complete(JsonSupport.simpleError(StatusCodes.InternalServerError, "Failed to create asset"))
+                }
+              case Failure(_) =>
+                complete(JsonSupport.simpleError(StatusCodes.BadRequest, "Invalid JSON request"))
+            }
           }
         }
       }

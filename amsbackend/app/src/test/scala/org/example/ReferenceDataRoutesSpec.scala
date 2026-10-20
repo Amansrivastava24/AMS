@@ -109,7 +109,7 @@ class ReferenceDataRoutesSpec extends AnyFunSuite with Matchers with ScalatestRo
   }
 
   test("POST /api/locations should reject GENERAL user with 403") {
-    val json = """{"name":"Building B","floor":"2nd"}"""
+    val json = """{"description":"Building B","floorNo":"2nd"}"""
     Post("/api/locations", HttpEntity(ContentTypes.`application/json`, json)) ~>
       addHeader(Authorization(OAuth2BearerToken(TestDbHelper.generalToken))) ~> locRoutes.route ~> check {
       status shouldBe StatusCodes.Forbidden
@@ -118,7 +118,7 @@ class ReferenceDataRoutesSpec extends AnyFunSuite with Matchers with ScalatestRo
 
   test("POST /api/locations should create location for ADMIN") {
     val locName = s"TestLoc_${System.currentTimeMillis()}"
-    val json = s"""{"name":"$locName","floor":"4th","roomLocation":"Lab 101"}"""
+    val json = s"""{"description":"$locName","floorNo":"4th","seatNo":"Seat 101"}"""
     Post("/api/locations", HttpEntity(ContentTypes.`application/json`, json)) ~>
       addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~> locRoutes.route ~> check {
       status shouldBe StatusCodes.Created

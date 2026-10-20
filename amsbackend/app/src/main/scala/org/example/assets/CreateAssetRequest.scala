@@ -2,6 +2,12 @@ package org.example.assets
 
 import java.time.LocalDate
 
+final case class InlineLocationRequest(
+    description: String,
+    seatNo: Option[String] = None,
+    floorNo: Option[String] = None
+)
+
 final case class CreateAssetRequest(
     assetCode: String,
     assetTypeId: Any,
@@ -21,7 +27,8 @@ final case class CreateAssetRequest(
     serialNumberFound: Option[String] = None,
     status: Option[String] = None,
     verificationStatus: Option[String] = None,
-    gatePassNumber: Option[String] = None
+    gatePassNumber: Option[String] = None,
+    newLocation: Option[InlineLocationRequest] = None
 ) {
   private def toOptionLong(v: Option[Any]): Option[Long] = v match {
     case Some(n: Number) => Some(n.longValue())
@@ -40,6 +47,8 @@ final case class CreateAssetRequest(
     case s: String if s.trim.nonEmpty => scala.util.Try(s.trim.toLong).getOrElse(0L)
     case _ => 0L
   }
+
+  def cleanLocationId: Option[Long] = toOptionLong(locationId)
 
   def toAsset: Asset =
     Asset(

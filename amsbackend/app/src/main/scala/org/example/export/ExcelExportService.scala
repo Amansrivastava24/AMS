@@ -25,9 +25,11 @@ object ExcelExportService {
     "Cost Center",
     "Asset Owner",
     "Current Custodian",
-    "Location",
-    "Floor",
-    "Room / Seat",
+    "Location Description",
+    "Seat No.",
+    "Floor No.",
+    "City",
+    "Country",
     "Date of Checking",
     "Gate Pass Number",
     "Tagging Status",
@@ -104,17 +106,19 @@ object ExcelExportService {
         row.createCell(10).setCellValue(sanitizeCellText(asset.costCenter.getOrElse("")))
         row.createCell(11).setCellValue(sanitizeCellText(asset.assetOwnerName.getOrElse("")))
         row.createCell(12).setCellValue(sanitizeCellText(asset.custodianName.getOrElse("")))
-        row.createCell(13).setCellValue(sanitizeCellText(asset.locationName.getOrElse("")))
-        row.createCell(14).setCellValue(sanitizeCellText(asset.floor.getOrElse("")))
-        row.createCell(15).setCellValue(sanitizeCellText(asset.roomLocation.getOrElse("")))
+        row.createCell(13).setCellValue(sanitizeCellText(asset.locationDescription.getOrElse("")))
+        row.createCell(14).setCellValue(sanitizeCellText(asset.seatNo.getOrElse("")))
+        row.createCell(15).setCellValue(sanitizeCellText(asset.floorNo.getOrElse("")))
+        row.createCell(16).setCellValue(sanitizeCellText(asset.city.getOrElse("")))
+        row.createCell(17).setCellValue(sanitizeCellText(asset.country.getOrElse("")))
 
         val dateStr = asset.dateOfChecking.map(_.format(DateFormatter)).getOrElse("")
-        row.createCell(16).setCellValue(dateStr)
+        row.createCell(18).setCellValue(dateStr)
 
-        row.createCell(17).setCellValue(sanitizeCellText(asset.gatePassNumber.getOrElse("")))
-        row.createCell(18).setCellValue(sanitizeCellText(asset.taggingStatus.getOrElse("")))
-        row.createCell(19).setCellValue(sanitizeCellText(asset.makeModel.getOrElse("")))
-        row.createCell(20).setCellValue(sanitizeCellText(asset.remarks.getOrElse("")))
+        row.createCell(19).setCellValue(sanitizeCellText(asset.gatePassNumber.getOrElse("")))
+        row.createCell(20).setCellValue(sanitizeCellText(asset.taggingStatus.getOrElse("")))
+        row.createCell(21).setCellValue(sanitizeCellText(asset.makeModel.getOrElse("")))
+        row.createCell(22).setCellValue(sanitizeCellText(asset.remarks.getOrElse("")))
       }
 
       // Auto-size columns up to reasonable width

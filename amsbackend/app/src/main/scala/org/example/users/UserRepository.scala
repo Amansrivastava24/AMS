@@ -6,7 +6,7 @@ import slick.jdbc.PostgresProfile.api._
 import scala.concurrent.{ExecutionContext, Future}
 
 final class UserRepository(
-    database: slick.jdbc.JdbcBackend.Database
+    val database: slick.jdbc.JdbcBackend.Database
 )(implicit executionContext: ExecutionContext) {
 
   private val userDetailsQuery = for {
@@ -81,14 +81,19 @@ final class UserRepository(
           roleId = u.roleId,
           departmentId = u.departmentId,
           departmentName = d,
-          status = u.status
+          status = u.status,
+          city = u.city,
+          country = u.country
         )
       }
       UserPage(userResponses, safePage, safePageSize, total)
     }
   }
 
-  def findById(id: Long): Future[Option[(User, String, Option[String])]] = {
+  def findById(id: Long): Future[Option[User]] =
+    database.run(UsersTable.query.filter(_.id === id).result.headOption)
+
+  def findUserDetailsById(id: Long): Future[Option[(User, String, Option[String])]] = {
     val q = for {
       ((u, r), d) <- UsersTable.query.filter(_.id === id)
         .join(RolesTable.query).on(_.roleId === _.id)
@@ -98,8 +103,7 @@ final class UserRepository(
     database.run(q.result.headOption)
   }
 
-  def findUserOnlyById(id: Long): Future[Option[User]] =
-    database.run(UsersTable.query.filter(_.id === id).result.headOption)
+  def findUserOnlyById(id: Long): Future[Option[User]] = findById(id)
 
   def findByEmployeeId(empId: String): Future[Option[User]] =
     database.run(
@@ -127,7 +131,9 @@ final class UserRepository(
       name: Option[String],
       email: Option[String],
       departmentId: Option[Option[Long]],
-      passwordHash: Option[String]
+      passwordHash: Option[String],
+      city: Option[Option[String]] = None,
+      country: Option[Option[String]] = None
   ): Future[Option[User]] = {
     findUserOnlyById(id).flatMap {
       case None => Future.successful(None)
@@ -136,7 +142,9 @@ final class UserRepository(
           name = name.getOrElse(existing.name),
           email = email.getOrElse(existing.email),
           departmentId = departmentId.getOrElse(existing.departmentId),
-          passwordHash = passwordHash.getOrElse(existing.passwordHash)
+          passwordHash = passwordHash.getOrElse(existing.passwordHash),
+          city = city.getOrElse(existing.city),
+          country = country.getOrElse(existing.country)
         )
         database.run(UsersTable.query.filter(_.id === id).update(updated)).map {
           case 0 => None
@@ -209,7 +217,9 @@ final class UserRepository(
           roleId = u.roleId,
           departmentId = u.departmentId,
           departmentName = dName,
-          status = u.status
+          status = u.status,
+          city = u.city,
+          country = u.country
         )
       }
     }

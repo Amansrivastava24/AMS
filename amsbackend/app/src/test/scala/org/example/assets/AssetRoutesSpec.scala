@@ -11,6 +11,7 @@ import org.junit.runner.RunWith
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.junit.JUnitRunner
+import org.example.locations.{Location, LocationsTable}
 import slick.jdbc.PostgresProfile.api._
 
 import scala.concurrent.Await
@@ -439,6 +440,116 @@ class AssetRoutesSpec extends AnyFunSuite with Matchers with ScalatestRouteTest 
     }
     Delete(s"/api/assets/$id3") ~> addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~> assetRoutes.route ~> check {
       status shouldBe StatusCodes.NoContent
+    }
+  }
+
+  test("Location & Asset Integration: Admin can create asset with existing location") {
+    val locId = Await.result(
+      db.run(
+        (LocationsTable.query returning LocationsTable.query.map(_.id)) += Location(
+          id = 0L,
+          description = s"Admin City Match Lab ${System.currentTimeMillis()}",
+          seatNo = Some("S-1"),
+          floorNo = Some("2"),
+          city = Some("Noida"),
+          country = Some("India")
+        )
+      ),
+      5.seconds
+    )
+
+    val code = s"AST_LOC_${System.currentTimeMillis()}"
+    val json = s"""{
+      "assetCode":"$code",
+      "name":"Calibrated Multi-Meter",
+      "assetTypeId":$testAssetTypeId,
+      "locationId":$locId,
+      "quantity":1
+    }"""
+
+    Post("/api/assets", HttpEntity(ContentTypes.`application/json`, json)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~>
+      assetRoutes.route ~> check {
+      status shouldBe StatusCodes.Created
+      responseAs[String] should include(code)
+      responseAs[String] should include(s""""locationId":$locId""")
+    }
+  }
+
+  test("Location & Asset Integration: Admin can create asset with inline new location in single transaction") {
+    val code = s"AST_INLINE_${System.currentTimeMillis()}"
+    val desc = s"Inline Test Lab ${System.currentTimeMillis()}"
+    val json = s"""{
+      "assetCode":"$code",
+      "name":"Edge Router Switch",
+      "assetTypeId":$testAssetTypeId,
+      "quantity":1,
+      "newLocation":{
+        "description":"$desc",
+        "seatNo":"Seat-42",
+        "floorNo":"3rd Floor"
+      }
+    }"""
+
+    Post("/api/assets", HttpEntity(ContentTypes.`application/json`, json)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~>
+      assetRoutes.route ~> check {
+      status shouldBe StatusCodes.Created
+      responseAs[String] should include(code)
+      // Verify location was created with admin's City and Country from DB
+      val locInDb = Await.result(
+        db.run(sql"SELECT description, seat_no, floor_no, city, country FROM locations WHERE description = $desc".as[(String, Option[String], Option[String], Option[String], Option[String])].headOption),
+        5.seconds
+      )
+      locInDb shouldBe defined
+      locInDb.get._1 shouldBe desc
+      locInDb.get._2 shouldBe Some("Seat-42")
+      locInDb.get._3 shouldBe Some("3rd Floor")
+      locInDb.get._4 shouldBe Some("Noida")
+      locInDb.get._5 shouldBe Some("India")
+    }
+  }
+
+  test("Location & Asset Integration: Failed asset creation rolls back newly created location") {
+    val code = s"AST_EXISTING_${System.currentTimeMillis()}"
+    // Create pre-existing asset with this code
+    val setupJson = s"""{
+      "assetCode":"$code",
+      "name":"Pre-existing Asset",
+      "assetTypeId":$testAssetTypeId,
+      "quantity":1
+    }"""
+    Post("/api/assets", HttpEntity(ContentTypes.`application/json`, setupJson)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~>
+      assetRoutes.route ~> check {
+      status shouldBe StatusCodes.Created
+    }
+
+    // Now attempt to create duplicate asset with a new inline location
+    val orphanDesc = s"Rollback_Check_Loc_${System.currentTimeMillis()}"
+    val failingJson = s"""{
+      "assetCode":"$code",
+      "name":"Duplicate Code Asset",
+      "assetTypeId":$testAssetTypeId,
+      "quantity":1,
+      "newLocation":{
+        "description":"$orphanDesc",
+        "seatNo":"Seat-99",
+        "floorNo":"1st Floor"
+      }
+    }"""
+
+    Post("/api/assets", HttpEntity(ContentTypes.`application/json`, failingJson)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~>
+      assetRoutes.route ~> check {
+      status shouldBe StatusCodes.Conflict
+
+      // CRITICAL ACCEPTANCE CHECK: Verify newly created location was rolled back!
+      val locCount = Await.result(
+        db.run(sql"SELECT COUNT(*) FROM locations WHERE description = $orphanDesc".as[Int].head),
+        5.seconds
+      )
+      locCount shouldBe 0
     }
   }
 }

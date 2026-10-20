@@ -62,9 +62,11 @@ class ExcelExportServiceSpec extends AnyFunSuite with Matchers {
         costCenter = Some("CC-101"),
         assetOwnerName = Some("Alice Smith"),
         custodianName = Some("Bob Jones"),
-        locationName = Some("HQ Building"),
-        floor = Some("3rd"),
-        roomLocation = Some("Room 302"),
+        locationDescription = Some("HQ Lab"),
+        seatNo = Some("Seat 14"),
+        floorNo = Some("3rd"),
+        city = Some("Noida"),
+        country = Some("India"),
         dateOfChecking = Some(LocalDate.of(2026, 5, 10)),
         gatePassNumber = Some("GP-999"),
         taggingStatus = Some("T"),
@@ -92,14 +94,16 @@ class ExcelExportServiceSpec extends AnyFunSuite with Matchers {
     dataRow.getCell(10).getStringCellValue shouldBe "CC-101"
     dataRow.getCell(11).getStringCellValue shouldBe "Alice Smith"
     dataRow.getCell(12).getStringCellValue shouldBe "Bob Jones"
-    dataRow.getCell(13).getStringCellValue shouldBe "HQ Building"
-    dataRow.getCell(14).getStringCellValue shouldBe "3rd"
-    dataRow.getCell(15).getStringCellValue shouldBe "Room 302"
-    dataRow.getCell(16).getStringCellValue shouldBe "2026-05-10"
-    dataRow.getCell(17).getStringCellValue shouldBe "GP-999"
-    dataRow.getCell(18).getStringCellValue shouldBe "T"
-    dataRow.getCell(19).getStringCellValue shouldBe "Dell XPS"
-    dataRow.getCell(20).getStringCellValue shouldBe "Good condition"
+    dataRow.getCell(13).getStringCellValue shouldBe "HQ Lab"
+    dataRow.getCell(14).getStringCellValue shouldBe "Seat 14"
+    dataRow.getCell(15).getStringCellValue shouldBe "3rd"
+    dataRow.getCell(16).getStringCellValue shouldBe "Noida"
+    dataRow.getCell(17).getStringCellValue shouldBe "India"
+    dataRow.getCell(18).getStringCellValue shouldBe "2026-05-10"
+    dataRow.getCell(19).getStringCellValue shouldBe "GP-999"
+    dataRow.getCell(20).getStringCellValue shouldBe "T"
+    dataRow.getCell(21).getStringCellValue shouldBe "Dell XPS"
+    dataRow.getCell(22).getStringCellValue shouldBe "Good condition"
 
     workbook.close()
   }

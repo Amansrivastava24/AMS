@@ -29,6 +29,39 @@ final class UserRoutes(service: UserService)(
 
   val route: Route =
     pathPrefix("api" / "users") {
+      path("me") {
+        AuthDirectives.authenticated { claims =>
+          val userId = scala.util.Try(claims.getSubject.toLong).getOrElse(0L)
+          val role = Option(claims.get("role", classOf[String])).getOrElse("")
+          get {
+            onComplete(service.getUser(userId)) {
+              case Success(Some(user)) =>
+                complete(JsonSupport.jsonResponse(StatusCodes.OK, user))
+              case Success(None) =>
+                complete(JsonSupport.simpleError(StatusCodes.NotFound, "User not found"))
+              case Failure(ex) =>
+                complete(JsonSupport.simpleError(StatusCodes.InternalServerError, "Failed to retrieve user"))
+            }
+          } ~
+          put {
+            entity(as[String]) { body =>
+              JsonSupport.fromJson[UpdateUserRequest](body) match {
+                case Success(req) =>
+                  onComplete(service.updateUser(userId, role, userId, req)) {
+                    case Success(Right(user)) =>
+                      complete(JsonSupport.jsonResponse(StatusCodes.OK, user))
+                    case Success(Left(err)) =>
+                      complete(JsonSupport.handleServiceError(err))
+                    case Failure(ex) =>
+                      complete(JsonSupport.simpleError(StatusCodes.InternalServerError, "Failed to update profile"))
+                  }
+                case Failure(_) =>
+                  complete(JsonSupport.simpleError(StatusCodes.BadRequest, "Invalid JSON request"))
+              }
+            }
+          }
+        }
+      } ~
       pathEndOrSingleSlash {
         // GET /api/users
         adminOnly { (_, _) =>

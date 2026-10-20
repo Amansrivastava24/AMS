@@ -75,16 +75,16 @@ object App {
     val assetTypeService = new AssetTypeService(assetTypeRepository)
     val assetTypeRoutes = new AssetTypeRoutes(assetTypeService)
 
-    val locationRepository = new LocationRepository(db)
-    val locationService = new LocationService(locationRepository)
-    val locationRoutes = new LocationRoutes(locationService)
-
     val userRepository = new UserRepository(db)
     val userService = new UserService(userRepository)
     val userRoutes = new UserRoutes(userService)
 
+    val locationRepository = new LocationRepository(db)
+    val locationService = new LocationService(locationRepository)
+    val locationRoutes = new LocationRoutes(locationService, userRepository)
+
     val assetRepository = new AssetRepository(db)
-    val assetService = new AssetService(assetRepository)
+    val assetService = new AssetService(assetRepository, locationRepository, userRepository)
     val assetRoutes = new AssetRoutes(assetService)
 
     val route = buildRoute(

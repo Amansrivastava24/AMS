@@ -10,7 +10,9 @@ case class User(
     passwordHash: String,
     roleId: Long,
     departmentId: Option[Long],
-    status: String
+    status: String,
+    city: Option[String] = None,
+    country: Option[String] = None
 )
 
 case class Role(
@@ -27,7 +29,9 @@ case class UserResponse(
     roleId: Long,
     departmentId: Option[Long],
     departmentName: Option[String],
-    status: String
+    status: String,
+    city: Option[String] = None,
+    country: Option[String] = None
 )
 
 case class CreateUserRequest(
@@ -37,7 +41,9 @@ case class CreateUserRequest(
     password: String,
     roleId: Any,
     departmentId: Option[Any] = None,
-    status: Option[String] = Some("ACTIVE")
+    status: Option[String] = Some("ACTIVE"),
+    city: Option[String] = None,
+    country: Option[String] = None
 ) {
   def cleanRoleId: Long = roleId match {
     case n: Number => n.longValue()
@@ -56,7 +62,9 @@ case class UpdateUserRequest(
     name: Option[String] = None,
     email: Option[String] = None,
     departmentId: Option[Any] = None,
-    password: Option[String] = None
+    password: Option[String] = None,
+    city: Option[String] = None,
+    country: Option[String] = None
 ) {
   def cleanDepartmentId: Option[Option[Long]] = departmentId match {
     case None => None
@@ -109,8 +117,10 @@ class UsersTable(tag: Tag) extends Table[User](tag, "users") {
   def roleId = column[Long]("role_id")
   def departmentId = column[Option[Long]]("department_id")
   def status = column[String]("status")
+  def city = column[Option[String]]("city")
+  def country = column[Option[String]]("country")
 
-  def * = (id, employeeId, name, email, passwordHash, roleId, departmentId, status) <> (User.tupled, User.unapply)
+  def * = (id, employeeId, name, email, passwordHash, roleId, departmentId, status, city, country) <> (User.tupled, User.unapply)
 }
 
 object UsersTable {

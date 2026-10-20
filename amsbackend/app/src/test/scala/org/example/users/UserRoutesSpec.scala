@@ -113,6 +113,27 @@ class UserRoutesSpec extends AnyFunSuite with Matchers with ScalatestRouteTest {
     }
   }
 
+  test("PUT /api/users/me allows authenticated user to update their own profile including city and country") {
+    val json = """{"city":"Noida","country":"India"}"""
+    Put("/api/users/me", HttpEntity(ContentTypes.`application/json`, json)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~> userRoutes.route ~> check {
+      status shouldBe StatusCodes.OK
+      val resp = responseAs[String]
+      resp should include("Noida")
+      resp should include("India")
+    }
+  }
+
+  test("PUT /api/users/{id}: allows ADMIN to update their own profile") {
+    val json = """{"city":"Noida","country":"India"}"""
+    Put(s"/api/users/${TestDbHelper.adminId}", HttpEntity(ContentTypes.`application/json`, json)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~> userRoutes.route ~> check {
+      status shouldBe StatusCodes.OK
+      val resp = responseAs[String]
+      resp should include("Noida")
+    }
+  }
+
   test("PATCH /api/users/{id}/status: ADMIN cannot change status of SUPER_ADMIN") {
     val json = """{"status":"INACTIVE"}"""
     Patch(s"/api/users/${TestDbHelper.superAdminId}/status", HttpEntity(ContentTypes.`application/json`, json)) ~>

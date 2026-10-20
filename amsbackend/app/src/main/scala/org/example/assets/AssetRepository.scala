@@ -16,7 +16,7 @@ final case class AssetPage(
 )
 
 final class AssetRepository(
-    database: slick.jdbc.JdbcBackend.Database
+    val database: slick.jdbc.JdbcBackend.Database
 )(implicit executionContext: ExecutionContext) {
 
   private val joinedQuery = for {
@@ -30,9 +30,11 @@ final class AssetRepository(
     at.name,
     o.map(_.name),
     c.map(_.name),
-    l.map(_.name),
-    l.flatMap(_.floor),
-    l.flatMap(_.roomLocation),
+    l.map(_.description),
+    l.flatMap(_.seatNo),
+    l.flatMap(_.floorNo),
+    l.flatMap(_.city),
+    l.flatMap(_.country),
     o.flatMap(_.departmentId),
     c.flatMap(_.departmentId)
   )
@@ -42,7 +44,7 @@ final class AssetRepository(
 
     filter.search.map(_.trim).filter(_.nonEmpty).foreach { term =>
       val pattern = s"%${term.toLowerCase}%"
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.assetCode.toLowerCase.like(pattern) ||
         a.name.toLowerCase.like(pattern) ||
         a.assetTag.map(_.toLowerCase).like(pattern) ||
@@ -52,89 +54,89 @@ final class AssetRepository(
 
     filter.assetCode.map(_.trim).filter(_.nonEmpty).foreach { code =>
       val pattern = s"%${code.toLowerCase}%"
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.assetCode.toLowerCase.like(pattern)
       }
     }
 
     filter.assetTag.map(_.trim).filter(_.nonEmpty).foreach { tag =>
       val pattern = s"%${tag.toLowerCase}%"
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.assetTag.map(_.toLowerCase).like(pattern)
       }
     }
 
     filter.serialNumber.map(_.trim).filter(_.nonEmpty).foreach { sn =>
       val pattern = s"%${sn.toLowerCase}%"
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.serialNumber.map(_.toLowerCase).like(pattern)
       }
     }
 
     filter.name.map(_.trim).filter(_.nonEmpty).foreach { n =>
       val pattern = s"%${n.toLowerCase}%"
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.name.toLowerCase.like(pattern)
       }
     }
 
     filter.status.map(_.trim.toUpperCase).filter(_.nonEmpty).foreach { st =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) => a.status === st }
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) => a.status === st }
     }
 
     filter.verificationStatus.map(_.trim.toUpperCase).filter(_.nonEmpty).foreach { vs =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) => a.verificationStatus === vs }
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) => a.verificationStatus === vs }
     }
 
     filter.assetTypeId.foreach { tid =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) => a.assetTypeId === tid }
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) => a.assetTypeId === tid }
     }
 
     filter.assetOwnerId.foreach { oid =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) => a.assetOwnerId === Option(oid) }
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) => a.assetOwnerId === Option(oid) }
     }
 
     filter.custodianId.foreach { cid =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) => a.custodianId === Option(cid) }
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) => a.custodianId === Option(cid) }
     }
 
     filter.departmentId.foreach { did =>
-      q = q.filter { case (_, _, _, _, _, _, _, oDept, cDept) =>
+      q = q.filter { case (_, _, _, _, _, _, _, _, _, oDept, cDept) =>
         oDept === Option(did) || cDept === Option(did)
       }
     }
 
     filter.locationId.foreach { lid =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) => a.locationId === Option(lid) }
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) => a.locationId === Option(lid) }
     }
 
     filter.floor.map(_.trim).filter(_.nonEmpty).foreach { f =>
-      q = q.filter { case (_, _, _, _, _, floorOpt, _, _, _) =>
+      q = q.filter { case (_, _, _, _, _, _, floorOpt, _, _, _, _) =>
         floorOpt === Option(f)
       }
     }
 
     filter.roomLocation.map(_.trim).filter(_.nonEmpty).foreach { r =>
       val pattern = s"%${r.toLowerCase}%"
-      q = q.filter { case (_, _, _, _, _, _, roomOpt, _, _) =>
-        roomOpt.map(_.toLowerCase).like(pattern)
+      q = q.filter { case (_, _, _, _, descOpt, seatOpt, _, _, _, _, _) =>
+        descOpt.map(_.toLowerCase).like(pattern) || seatOpt.map(_.toLowerCase).like(pattern)
       }
     }
 
     filter.costCenter.map(_.trim).filter(_.nonEmpty).foreach { cc =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.costCenter === Option(cc)
       }
     }
 
     filter.taggingStatus.map(_.trim.toUpperCase).filter(_.nonEmpty).foreach { ts =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.taggingStatus === Option(ts)
       }
     }
 
     filter.dateOfChecking.foreach { doc =>
-      q = q.filter { case (a, _, _, _, _, _, _, _, _) =>
+      q = q.filter { case (a, _, _, _, _, _, _, _, _, _, _) =>
         a.dateOfChecking === Option(doc)
       }
     }
@@ -174,7 +176,7 @@ final class AssetRepository(
     val q = buildFilteredQuery(filter).sortBy(_._1.id.asc)
 
     database.run(q.result).map { rows =>
-      rows.map { case (a, atName, oName, cName, lName, floor, room, _, _) =>
+      rows.map { case (a, atName, oName, cName, descOpt, seatOpt, floorOpt, cityOpt, countryOpt, _, _) =>
         AssetExportRow(
           id = a.id,
           assetCode = a.assetCode,
@@ -190,9 +192,11 @@ final class AssetRepository(
           costCenter = a.costCenter,
           assetOwnerName = oName,
           custodianName = cName,
-          locationName = lName,
-          floor = floor,
-          roomLocation = room,
+          locationDescription = descOpt,
+          seatNo = seatOpt,
+          floorNo = floorOpt,
+          city = cityOpt,
+          country = countryOpt,
           dateOfChecking = a.dateOfChecking,
           gatePassNumber = a.gatePassNumber,
           taggingStatus = a.taggingStatus,

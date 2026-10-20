@@ -54,15 +54,15 @@ object TestDbHelper {
         existingIdOpt match {
           case Some(id) =>
             Await.result(
-              db.run(sqlu"UPDATE users SET employee_id = $empId, name = $name, email = $email, password_hash = $passwordHash, role_id = $roleId, status = $status WHERE id = $id"),
+              db.run(sqlu"UPDATE users SET employee_id = $empId, name = $name, email = $email, password_hash = $passwordHash, role_id = $roleId, status = $status, city = 'Noida', country = 'India' WHERE id = $id"),
               5.seconds
             )
             id
           case None =>
             Await.result(
               db.run(sql"""
-                INSERT INTO users (employee_id, name, email, password_hash, role_id, status)
-                VALUES ($empId, $name, $email, $passwordHash, $roleId, $status)
+                INSERT INTO users (employee_id, name, email, password_hash, role_id, status, city, country)
+                VALUES ($empId, $name, $email, $passwordHash, $roleId, $status, 'Noida', 'India')
                 RETURNING id
               """.as[Long].head),
               5.seconds

@@ -5,20 +5,29 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import org.example.auth.AuthDirectives
 import org.example.common._
+import org.example.users.UserRepository
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
-final class LocationRoutes(service: LocationService)(
+final class LocationRoutes(
+    service: LocationService,
+    userRepository: UserRepository
+)(
     implicit executionContext: ExecutionContext
 ) {
 
+  def this(service: LocationService)(implicit ec: ExecutionContext) =
+    this(service, new UserRepository(service.repository.database))
+
   private val adminRoles = Set("ADMIN", "SUPER_ADMIN")
 
-  private def adminOnly(inner: => Route): Route =
+  private def adminOnlyWithUser(inner: (Long, String) => Route): Route =
     AuthDirectives.authenticated { claims =>
-      if (AuthDirectives.hasRole(claims, adminRoles)) {
-        inner
+      val role = Option(claims.get("role", classOf[String])).getOrElse("")
+      val userId = scala.util.Try(claims.getSubject.toLong).getOrElse(0L)
+      if (adminRoles.contains(role) && userId > 0) {
+        inner(userId, role)
       } else {
         AuthDirectives.forbidden
       }
@@ -41,18 +50,26 @@ final class LocationRoutes(service: LocationService)(
           }
         } ~
         // POST /api/locations
-        adminOnly {
+        adminOnlyWithUser { (userId, _) =>
           post {
             entity(as[String]) { body =>
               JsonSupport.fromJson[LocationRequest](body) match {
                 case Success(req) =>
-                  onComplete(service.createLocation(req)) {
-                    case Success(Right(loc)) =>
-                      complete(JsonSupport.jsonResponse(StatusCodes.Created, loc))
-                    case Success(Left(err)) =>
-                      complete(JsonSupport.handleServiceError(err))
-                    case Failure(ex) =>
-                      complete(JsonSupport.simpleError(StatusCodes.InternalServerError, "Failed to create location"))
+                  onComplete(userRepository.findById(userId)) {
+                    case Success(Some(adminUser)) =>
+                      val adminProfile = Some((adminUser.city, adminUser.country))
+                      onComplete(service.createLocation(req, adminProfile)) {
+                        case Success(Right(loc)) =>
+                          complete(JsonSupport.jsonResponse(StatusCodes.Created, loc))
+                        case Success(Left(err)) =>
+                          complete(JsonSupport.handleServiceError(err))
+                        case Failure(ex) =>
+                          complete(JsonSupport.simpleError(StatusCodes.InternalServerError, "Failed to create location"))
+                      }
+                    case Success(None) =>
+                      complete(JsonSupport.simpleError(StatusCodes.Unauthorized, "Authenticated user not found"))
+                    case Failure(_) =>
+                      complete(JsonSupport.simpleError(StatusCodes.InternalServerError, "Failed to load user profile"))
                   }
                 case Failure(_) =>
                   complete(JsonSupport.simpleError(StatusCodes.BadRequest, "Invalid JSON request"))
@@ -76,7 +93,7 @@ final class LocationRoutes(service: LocationService)(
           }
         } ~
         // PUT /api/locations/{id}
-        adminOnly {
+        adminOnlyWithUser { (_, _) =>
           put {
             entity(as[String]) { body =>
               JsonSupport.fromJson[LocationRequest](body) match {
@@ -96,7 +113,7 @@ final class LocationRoutes(service: LocationService)(
           }
         } ~
         // DELETE /api/locations/{id}
-        adminOnly {
+        adminOnlyWithUser { (_, _) =>
           delete {
             onComplete(service.deleteLocation(id)) {
               case Success(Right(_)) =>

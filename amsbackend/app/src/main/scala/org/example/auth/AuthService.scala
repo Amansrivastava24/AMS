@@ -16,7 +16,9 @@ object AuthService {
       email: String,
       passwordHash: String,
       role: String,
-      status: String
+      status: String,
+      city: Option[String],
+      country: Option[String]
   )
 
   implicit private val userResult: GetResult[AuthenticatedUser] =
@@ -28,7 +30,9 @@ object AuthService {
         email = r.nextString(),
         passwordHash = r.nextString(),
         role = r.nextString(),
-        status = r.nextString()
+        status = r.nextString(),
+        city = r.nextStringOption(),
+        country = r.nextStringOption()
       )
     }
 
@@ -45,7 +49,7 @@ object AuthService {
       Future.successful(Left("Employee ID/email and password are required"))
     } else {
       val userQuery = sql"""
-        SELECT u.id, u.employee_id, u.name, u.email, u.password_hash, r.name, u.status
+        SELECT u.id, u.employee_id, u.name, u.email, u.password_hash, r.name, u.status, u.city, u.country
         FROM users u
         JOIN roles r ON r.id = u.role_id
         WHERE u.employee_id = $identifier
@@ -80,7 +84,9 @@ object AuthService {
                 employeeId = user.employeeId,
                 name = user.name,
                 email = user.email,
-                role = user.role
+                role = user.role,
+                city = user.city,
+                country = user.country
               )
             )
             Future.successful(Right(response))
