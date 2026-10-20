@@ -8,6 +8,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { LoadingState, ErrorState, EmptyState } from '../components/common/FeedbackStates';
 import { ROLES, canManageTargetUser } from '../permissions/permissions';
 import { useDebounce } from '../hooks/useDebounce';
+import { SearchableSelect } from '../components/common/SearchableSelect';
 import { 
   Users, 
   Plus, 
@@ -28,7 +29,7 @@ import {
 } from 'lucide-react';
 
 export function UsersPage() {
-  const { user: currentUser, role: currentRole } = useAuth();
+  const { user: currentUser, role: currentRole, refreshProfile } = useAuth();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -93,10 +94,13 @@ export function UsersPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }) => userService.updateUser(id, payload),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success('User updated successfully');
       setEditingUser(null);
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      if (Number(variables.id) === Number(currentUser?.id)) {
+        refreshProfile?.();
+      }
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to update user');
@@ -200,59 +204,63 @@ export function UsersPage() {
           {/* Role Filter */}
           <div>
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">Role</label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
+              onChange={(val) => {
+                setRoleFilter(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-1 focus:ring-brand-deep"
-            >
-              <option value="">All Roles</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.name}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'All Roles' },
+                ...roles.map((r) => ({
+                  value: r.name,
+                  label: r.name,
+                })),
+              ]}
+              placeholder="All Roles"
+            />
           </div>
 
           {/* Department Filter */}
           <div>
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">Department</label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={departmentId}
-              onChange={(e) => {
-                setDepartmentId(e.target.value);
+              onChange={(val) => {
+                setDepartmentId(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-1 focus:ring-brand-deep"
-            >
-              <option value="">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'All Departments' },
+                ...departments.map((d) => ({
+                  value: String(d.id),
+                  label: d.name,
+                })),
+              ]}
+              placeholder="All Departments"
+            />
           </div>
 
           {/* Status Filter */}
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <label className="block text-[11px] font-semibold text-ams-muted mb-1">Account Status</label>
-              <select
+              <SearchableSelect
+                size="sm"
                 value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
+                onChange={(val) => {
+                  setStatus(val);
                   setPage(1);
                 }}
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-1 focus:ring-brand-deep"
-              >
-                <option value="">All Statuses</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="INACTIVE">INACTIVE</option>
-              </select>
+                options={[
+                  { value: '', label: 'All Statuses' },
+                  { value: 'ACTIVE', label: 'ACTIVE' },
+                  { value: 'INACTIVE', label: 'INACTIVE' },
+                ]}
+                placeholder="All Statuses"
+              />
             </div>
 
             {(searchInput || roleFilter || departmentId || status) && (
@@ -328,7 +336,10 @@ export function UsersPage() {
                         {u.email}
                       </td>
                       <td className="text-xs text-ams-muted">
-                        {u.departmentName || departments.find((d) => d.id === u.departmentId)?.name || 'Unassigned'}
+                        <div>{u.departmentName || departments.find((d) => d.id === u.departmentId)?.name || 'Unassigned'}</div>
+                        {(u.city || u.country) && (
+                          <div className="text-[10px] text-ams-muted font-mono">{[u.city, u.country].filter(Boolean).join(', ')}</div>
+                        )}
                       </td>
                       <td>
                         <StatusBadge status={targetRole} />
@@ -523,10 +534,12 @@ function UserModal({ user, departments, roles = [], isSuperAdmin, serverError, o
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
-  const [departmentId, setDepartmentId] = useState(user?.departmentId || '');
+  const [departmentId, setDepartmentId] = useState(user?.departmentId ? String(user.departmentId) : '');
   const defaultRoleId = user?.roleId || roles.find((r) => r.name === 'GENERAL')?.id || roles[0]?.id || '';
   const [roleId, setRoleId] = useState(defaultRoleId);
   const [status, setStatus] = useState(user?.status || 'ACTIVE');
+  const [city, setCity] = useState(user?.city || '');
+  const [country, setCountry] = useState(user?.country || '');
   const [errorMsg, setErrorMsg] = useState('');
 
   const activeError = errorMsg || serverError;
@@ -559,6 +572,8 @@ function UserModal({ user, departments, roles = [], isSuperAdmin, serverError, o
       departmentId: departmentId ? Number(departmentId) : null,
       roleId: Number(roleId),
       status,
+      city: city.trim() || null,
+      country: country.trim() || null,
     };
 
     if (!isEditing || password) {
@@ -638,37 +653,60 @@ function UserModal({ user, departments, roles = [], isSuperAdmin, serverError, o
 
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <label className="block font-semibold text-ams-text mb-1">City</label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Noida"
+                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep text-xs"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-ams-text mb-1">Country</label>
+              <input
+                type="text"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="e.g. India"
+                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="block font-semibold text-ams-text mb-1">Department</label>
-              <select
+              <SearchableSelect
+                size="sm"
                 value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-1 focus:ring-brand-deep"
-              >
-                <option value="">Unassigned</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setDepartmentId(val)}
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  ...departments.map((d) => ({
+                    value: String(d.id),
+                    label: d.name,
+                  })),
+                ]}
+                placeholder="Select Department..."
+              />
             </div>
 
             <div>
               <label className="block font-semibold text-ams-text mb-1">Role Assignment</label>
-              <select
-                value={roleId}
-                onChange={(e) => setRoleId(e.target.value)}
+              <SearchableSelect
+                size="sm"
+                value={String(roleId)}
+                onChange={(val) => setRoleId(val)}
                 disabled={!isSuperAdmin && !isEditing}
-                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-1 focus:ring-brand-deep disabled:bg-gray-100"
-              >
-                {roles
+                options={roles
                   .filter((r) => isSuperAdmin || r.name === 'GENERAL' || r.name === 'CUSTODIAN')
-                  .map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-              </select>
+                  .map((r) => ({
+                    value: String(r.id),
+                    label: r.name,
+                  }))}
+                allowClear={false}
+              />
               {!isSuperAdmin && (
                 <span className="text-[10px] text-ams-muted mt-0.5 block">
                   Admins can only create General or Custodian accounts
@@ -730,17 +768,16 @@ function RoleChangeModal({ user, roles = [], onClose, onSubmit, isSubmitting }) 
 
           <div>
             <label className="block font-semibold text-ams-text mb-1">Select New Role</label>
-            <select
-              value={roleId}
-              onChange={(e) => setRoleId(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-1 focus:ring-brand-deep font-semibold"
-            >
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} {r.name === 'SUPER_ADMIN' ? '— Full System & Role Control' : r.name === 'ADMIN' ? '— Asset & Ordinary User Management' : r.name === 'CUSTODIAN' ? '— Assigned Asset Inspection & Update' : '— Inventory Viewing & Export only'}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={String(roleId)}
+              onChange={(val) => setRoleId(val)}
+              options={roles.map((r) => ({
+                value: String(r.id),
+                label: r.name,
+                subLabel: r.name === 'SUPER_ADMIN' ? 'Full System & Role Control' : r.name === 'ADMIN' ? 'Asset & Ordinary User Management' : r.name === 'CUSTODIAN' ? 'Assigned Asset Inspection & Update' : 'Inventory Viewing & Export only',
+              }))}
+              allowClear={false}
+            />
           </div>
 
           <div className="pt-3 border-t border-ams-border flex justify-end gap-2">

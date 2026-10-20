@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import { ROLES, hasPermission } from '../permissions/permissions';
 import { useToast } from '../components/common/Toast';
 import { useDebounce } from '../hooks/useDebounce';
+import { SearchableSelect } from '../components/common/SearchableSelect';
 import { 
   Plus, 
   Search, 
@@ -245,76 +246,85 @@ export function AssetsPage() {
 
           {/* Physical Status */}
           <div className="lg:col-span-2">
-            <select
+            <SearchableSelect
+              size="sm"
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+              onChange={(val) => {
+                setStatusFilter(val);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep transition-smooth"
-            >
-              <option value="">All Physical Status</option>
-              <option value="AVAILABLE">AVAILABLE</option>
-              <option value="ASSIGNED">ASSIGNED</option>
-              <option value="UNDER_REPAIR">UNDER_REPAIR</option>
-              <option value="LOST">LOST</option>
-              <option value="DAMAGED">DAMAGED</option>
-              <option value="RETIRED">RETIRED</option>
-              <option value="DISPOSED">DISPOSED</option>
-            </select>
+              options={[
+                { value: '', label: 'All Physical Status' },
+                { value: 'AVAILABLE', label: 'AVAILABLE' },
+                { value: 'ASSIGNED', label: 'ASSIGNED' },
+                { value: 'UNDER_REPAIR', label: 'UNDER_REPAIR' },
+                { value: 'LOST', label: 'LOST' },
+                { value: 'DAMAGED', label: 'DAMAGED' },
+                { value: 'RETIRED', label: 'RETIRED' },
+                { value: 'DISPOSED', label: 'DISPOSED' },
+              ]}
+              placeholder="All Physical Status"
+            />
           </div>
 
           {/* Verification Status */}
           <div className="lg:col-span-2">
-            <select
+            <SearchableSelect
+              size="sm"
               value={verificationFilter}
-              onChange={(e) => {
-                setVerificationFilter(e.target.value);
+              onChange={(val) => {
+                setVerificationFilter(val);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep transition-smooth"
-            >
-              <option value="">All Verification</option>
-              <option value="FOUND">FOUND</option>
-              <option value="MISSING">MISSING</option>
-              <option value="NOT_CHECKED">NOT_CHECKED</option>
-            </select>
+              options={[
+                { value: '', label: 'All Verification' },
+                { value: 'FOUND', label: 'FOUND' },
+                { value: 'MISSING', label: 'MISSING' },
+                { value: 'NOT_CHECKED', label: 'NOT_CHECKED' },
+              ]}
+              placeholder="All Verification"
+            />
           </div>
 
           {/* Asset Type */}
           <div className="lg:col-span-2">
-            <select
+            <SearchableSelect
+              size="sm"
               value={assetTypeId}
-              onChange={(e) => {
-                setAssetTypeId(e.target.value);
+              onChange={(val) => {
+                setAssetTypeId(val);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep transition-smooth"
-            >
-              <option value="">All Types</option>
-              {assetTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'All Types' },
+                ...assetTypes.map((t) => ({
+                  value: String(t.id),
+                  label: t.name,
+                })),
+              ]}
+              placeholder="All Types"
+            />
           </div>
 
           {/* Tagging Status */}
           <div className="lg:col-span-2 flex items-center gap-2">
-            <select
-              value={taggingStatus}
-              onChange={(e) => {
-                setTaggingStatus(e.target.value);
-                setPage(1);
-              }}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-ams-border bg-white focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep transition-smooth"
-            >
-              <option value="">Tag Status</option>
-              <option value="T">T — Tagged</option>
-              <option value="TR">TR — To Review</option>
-              <option value="NA">NA — Not Applicable</option>
-            </select>
+            <div className="flex-1">
+              <SearchableSelect
+                size="sm"
+                value={taggingStatus}
+                onChange={(val) => {
+                  setTaggingStatus(val);
+                  setPage(1);
+                }}
+                options={[
+                  { value: '', label: 'Tag Status' },
+                  { value: 'T', label: 'T — Tagged' },
+                  { value: 'TR', label: 'TR — To Review' },
+                  { value: 'NA', label: 'NA — Not Applicable' },
+                ]}
+                placeholder="Tag Status"
+              />
+            </div>
 
             {activeFilterCount > 0 && (
               <button
@@ -474,19 +484,23 @@ export function AssetsPage() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
                   <span>Page Size:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setPage(1);
-                    }}
-                    className="px-2 py-1 rounded border border-ams-border bg-white text-xs text-ams-text focus:outline-none"
-                  >
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
+                  <div className="w-20">
+                    <SearchableSelect
+                      size="sm"
+                      value={String(pageSize)}
+                      onChange={(val) => {
+                        setPageSize(Number(val));
+                        setPage(1);
+                      }}
+                      options={[
+                        { value: '10', label: '10' },
+                        { value: '20', label: '20' },
+                        { value: '50', label: '50' },
+                        { value: '100', label: '100' },
+                      ]}
+                      allowClear={false}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -543,15 +557,16 @@ export function AssetsPage() {
 
               <div>
                 <label className="block font-semibold text-ams-text mb-1">Audit Verification Status</label>
-                <select
+                <SearchableSelect
                   value={verifyStatusChoice}
-                  onChange={(e) => setVerifyStatusChoice(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-ams-border bg-white text-xs focus:outline-none focus:ring-2 focus:ring-brand-deep/20"
-                >
-                  <option value="FOUND">FOUND — Physically Confirmed</option>
-                  <option value="MISSING">MISSING — Not Located</option>
-                  <option value="NOT_CHECKED">NOT_CHECKED — Pending Audit</option>
-                </select>
+                  onChange={(val) => setVerifyStatusChoice(val)}
+                  options={[
+                    { value: 'FOUND', label: 'FOUND — Physically Confirmed' },
+                    { value: 'MISSING', label: 'MISSING — Not Located' },
+                    { value: 'NOT_CHECKED', label: 'NOT_CHECKED — Pending Audit' },
+                  ]}
+                  allowClear={false}
+                />
               </div>
 
               <div>

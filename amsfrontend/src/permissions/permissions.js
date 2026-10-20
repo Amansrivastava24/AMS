@@ -50,6 +50,10 @@ export function canManageTargetUser(actorRole, targetRole, actorId, targetId) {
   if (actorRole === ROLES.SUPER_ADMIN) {
     return true;
   }
+  // Any user or admin can edit their own profile details
+  if (actorId && targetId && Number(actorId) === Number(targetId)) {
+    return true;
+  }
   if (actorRole === ROLES.ADMIN) {
     // Admin cannot modify, demote or delete other Admin or Super Admin
     return targetRole === ROLES.GENERAL || targetRole === ROLES.CUSTODIAN;

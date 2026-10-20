@@ -9,6 +9,7 @@ import { useToast } from '../components/common/Toast';
 import { useAuth } from '../hooks/useAuth';
 import { ROLES, hasPermission } from '../permissions/permissions';
 import { AssetFormModal } from '../components/assets/AssetFormModal';
+import { SearchableSelect } from '../components/common/SearchableSelect';
 import { 
   Boxes, 
   Search, 
@@ -277,23 +278,25 @@ export function InventoryPage() {
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">
               Physical Status
             </label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+              onChange={(val) => {
+                setStatusFilter(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
-            >
-              <option value="">All Statuses</option>
-              <option value="AVAILABLE">AVAILABLE</option>
-              <option value="ASSIGNED">ASSIGNED</option>
-              <option value="UNDER_REPAIR">UNDER_REPAIR</option>
-              <option value="LOST">LOST</option>
-              <option value="DAMAGED">DAMAGED</option>
-              <option value="RETIRED">RETIRED</option>
-              <option value="DISPOSED">DISPOSED</option>
-            </select>
+              options={[
+                { value: '', label: 'All Statuses' },
+                { value: 'AVAILABLE', label: 'AVAILABLE' },
+                { value: 'ASSIGNED', label: 'ASSIGNED' },
+                { value: 'UNDER_REPAIR', label: 'UNDER_REPAIR' },
+                { value: 'LOST', label: 'LOST' },
+                { value: 'DAMAGED', label: 'DAMAGED' },
+                { value: 'RETIRED', label: 'RETIRED' },
+                { value: 'DISPOSED', label: 'DISPOSED' },
+              ]}
+              placeholder="All Statuses"
+            />
           </div>
 
           {/* Verification Status */}
@@ -301,19 +304,21 @@ export function InventoryPage() {
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">
               Verification Status
             </label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={verificationFilter}
-              onChange={(e) => {
-                setVerificationFilter(e.target.value);
+              onChange={(val) => {
+                setVerificationFilter(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
-            >
-              <option value="">All Verification</option>
-              <option value="FOUND">FOUND</option>
-              <option value="MISSING">MISSING</option>
-              <option value="NOT_CHECKED">NOT_CHECKED</option>
-            </select>
+              options={[
+                { value: '', label: 'All Verification' },
+                { value: 'FOUND', label: 'FOUND' },
+                { value: 'MISSING', label: 'MISSING' },
+                { value: 'NOT_CHECKED', label: 'NOT_CHECKED' },
+              ]}
+              placeholder="All Verification"
+            />
           </div>
 
           {/* Asset Type */}
@@ -321,21 +326,22 @@ export function InventoryPage() {
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">
               Asset Type
             </label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={assetTypeId}
-              onChange={(e) => {
-                setAssetTypeId(e.target.value);
+              onChange={(val) => {
+                setAssetTypeId(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
-            >
-              <option value="">All Asset Types</option>
-              {assetTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'All Asset Types' },
+                ...assetTypes.map((type) => ({
+                  value: String(type.id),
+                  label: type.name,
+                })),
+              ]}
+              placeholder="All Asset Types"
+            />
           </div>
 
           {/* Department */}
@@ -343,21 +349,22 @@ export function InventoryPage() {
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">
               Department
             </label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={departmentId}
-              onChange={(e) => {
-                setDepartmentId(e.target.value);
+              onChange={(val) => {
+                setDepartmentId(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
-            >
-              <option value="">All Departments</option>
-              {departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'All Departments' },
+                ...departments.map((dept) => ({
+                  value: String(dept.id),
+                  label: dept.name,
+                })),
+              ]}
+              placeholder="All Departments"
+            />
           </div>
 
           {/* Location */}
@@ -365,21 +372,30 @@ export function InventoryPage() {
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">
               Location
             </label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={locationId}
-              onChange={(e) => {
-                setLocationId(e.target.value);
+              onChange={(val) => {
+                setLocationId(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
-            >
-              <option value="">All Locations</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name} {loc.floor ? `(Floor ${loc.floor})` : ''}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'All Locations' },
+                ...locations.map((loc) => {
+                  const desc = loc.description || 'Location';
+                  const seat = loc.seatNo ? `Seat ${loc.seatNo}` : null;
+                  const floor = loc.floorNo ? `Floor ${loc.floorNo}` : null;
+                  const label = [desc, seat, floor].filter(Boolean).join(' — ');
+                  const subLabel = [loc.city, loc.country].filter(Boolean).join(', ');
+                  return {
+                    value: String(loc.id),
+                    label,
+                    subLabel,
+                  };
+                }),
+              ]}
+              placeholder="All Locations"
+            />
           </div>
 
           {/* Cost Center */}
@@ -404,19 +420,21 @@ export function InventoryPage() {
             <label className="block text-[11px] font-semibold text-ams-muted mb-1">
               Tagging Status
             </label>
-            <select
+            <SearchableSelect
+              size="sm"
               value={taggingStatus}
-              onChange={(e) => {
-                setTaggingStatus(e.target.value);
+              onChange={(val) => {
+                setTaggingStatus(val);
                 setPage(1);
               }}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
-            >
-              <option value="">All Tagging Statuses</option>
-              <option value="T">Tagged (T)</option>
-              <option value="TR">To Review (TR)</option>
-              <option value="NA">Not Applicable (NA)</option>
-            </select>
+              options={[
+                { value: '', label: 'All Tagging Statuses' },
+                { value: 'T', label: 'Tagged (T)' },
+                { value: 'TR', label: 'To Review (TR)' },
+                { value: 'NA', label: 'Not Applicable (NA)' },
+              ]}
+              placeholder="All Tagging Statuses"
+            />
           </div>
         </div>
       </div>
@@ -434,19 +452,23 @@ export function InventoryPage() {
           {/* Page size dropdown */}
           <div className="flex items-center gap-2 text-xs text-ams-muted">
             <span>Rows per page:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="px-2 py-1 text-xs border border-ams-border rounded bg-white focus:outline-none"
-            >
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
+            <div className="w-20">
+              <SearchableSelect
+                size="sm"
+                value={String(pageSize)}
+                onChange={(val) => {
+                  setPageSize(Number(val));
+                  setPage(1);
+                }}
+                options={[
+                  { value: '10', label: '10' },
+                  { value: '20', label: '20' },
+                  { value: '50', label: '50' },
+                  { value: '100', label: '100' },
+                ]}
+                allowClear={false}
+              />
+            </div>
           </div>
         </div>
 
@@ -667,6 +689,28 @@ export function InventoryPage() {
                   <span className="text-ams-muted block text-[11px]">Gate Pass</span>
                   <span className="text-ams-text">{inspectingAsset.gatePassNumber || '—'}</span>
                 </div>
+              </div>
+
+              {/* Location Details */}
+              <div className="p-2.5 rounded-lg bg-ams-bg border border-ams-border">
+                <span className="text-ams-muted block text-[11px] font-semibold mb-0.5">Physical Location</span>
+                {(() => {
+                  const loc = locations.find((l) => l.id === inspectingAsset.locationId);
+                  if (!loc) {
+                    return <span className="text-ams-muted italic">{inspectingAsset.locationId ? `Location #${inspectingAsset.locationId}` : 'Not assigned'}</span>;
+                  }
+                  const desc = loc.description || 'Location';
+                  const seat = loc.seatNo ? `Seat ${loc.seatNo}` : null;
+                  const floor = loc.floorNo ? `Floor ${loc.floorNo}` : null;
+                  const label = [desc, seat, floor].filter(Boolean).join(' — ');
+                  const geo = [loc.city, loc.country].filter(Boolean).join(', ');
+                  return (
+                    <div>
+                      <span className="font-medium text-ams-text">{label}</span>
+                      {geo && <span className="text-[11px] text-ams-muted block">{geo}</span>}
+                    </div>
+                  );
+                })()}
               </div>
 
               {inspectingAsset.serialNumberFound && (

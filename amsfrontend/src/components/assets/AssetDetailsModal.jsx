@@ -1,9 +1,27 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { referenceService } from '../../services/referenceService';
 import { X, Package, Tag, Shield, MapPin, Calendar, Layers, FileText, CheckCircle2 } from 'lucide-react';
 import { StatusBadge } from '../common/StatusBadge';
 
 export function AssetDetailsModal({ asset, onClose }) {
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: referenceService.getLocations,
+    staleTime: 60000,
+  });
+
   if (!asset) return null;
+
+  const loc = asset.locationId ? locations.find((l) => l.id === asset.locationId) : null;
+  const locLabel = loc
+    ? [loc.description, loc.seatNo ? `Seat ${loc.seatNo}` : null, loc.floorNo ? `Floor ${loc.floorNo}` : null]
+        .filter(Boolean)
+        .join(' — ')
+    : asset.locationId
+    ? `Location #${asset.locationId}`
+    : 'Unassigned';
+  const locGeo = loc ? [loc.city, loc.country].filter(Boolean).join(', ') : '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ams-text/40 backdrop-blur-xs">
@@ -126,20 +144,21 @@ export function AssetDetailsModal({ asset, onClose }) {
               <div className="p-3 rounded-lg bg-ams-bg border border-ams-border">
                 <span className="text-ams-muted block text-[11px]">Asset Owner</span>
                 <span className="font-medium text-ams-text mt-0.5 block">
-                  {asset.assetOwnerId ? `User #${asset.assetOwnerId}` : 'Unassigned'}
+                  {asset.assetOwnerName || (asset.assetOwnerId ? `User #${asset.assetOwnerId}` : 'Unassigned')}
                 </span>
               </div>
               <div className="p-3 rounded-lg bg-ams-bg border border-ams-border">
                 <span className="text-ams-muted block text-[11px]">Current Custodian</span>
                 <span className="font-medium text-ams-text mt-0.5 block">
-                  {asset.custodianId ? `User #${asset.custodianId}` : 'Unassigned'}
+                  {asset.custodianName || (asset.custodianId ? `User #${asset.custodianId}` : 'Unassigned')}
                 </span>
               </div>
-              <div className="p-3 rounded-lg bg-ams-bg border border-ams-border">
+              <div className="p-3 rounded-lg bg-ams-bg border border-ams-border col-span-2 sm:col-span-1">
                 <span className="text-ams-muted block text-[11px]">Location</span>
-                <span className="font-medium text-ams-text mt-0.5 block">
-                  {asset.locationId ? `Location #${asset.locationId}` : 'Unassigned'}
+                <span className="font-medium text-ams-text mt-0.5 block truncate" title={locLabel}>
+                  {locLabel}
                 </span>
+                {locGeo && <span className="text-[10px] text-ams-muted block font-mono">{locGeo}</span>}
               </div>
             </div>
           </div>

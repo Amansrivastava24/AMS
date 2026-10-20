@@ -35,6 +35,22 @@ export const userService = {
   },
 
   /**
+   * Fetch current authenticated user's profile
+   */
+  getMe: async () => {
+    const response = await apiClient.get('/api/users/me');
+    return response.data;
+  },
+
+  /**
+   * Update current authenticated user's profile
+   */
+  updateMe: async (profileData) => {
+    const response = await apiClient.put('/api/users/me', profileData);
+    return response.data;
+  },
+
+  /**
    * Create new user
    */
   createUser: async (userData) => {

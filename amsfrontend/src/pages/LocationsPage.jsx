@@ -6,9 +6,21 @@ import { useToast } from '../components/common/Toast';
 import { LoadingState, ErrorState, EmptyState } from '../components/common/FeedbackStates';
 import { ROLES } from '../permissions/permissions';
 import { MapPin, Plus, Search, Edit, Trash2, X, AlertTriangle } from 'lucide-react';
+import { SearchableSelect } from '../components/common/SearchableSelect';
+
+const FLOOR_OPTIONS = [
+  { value: '', label: 'All Floors' },
+  { value: 'Basement', label: 'Basement' },
+  { value: 'Ground Floor', label: 'Ground Floor' },
+  { value: '1', label: 'Floor 1' },
+  { value: '2', label: 'Floor 2' },
+  { value: '3', label: 'Floor 3' },
+  { value: '4', label: 'Floor 4' },
+  { value: '5', label: 'Floor 5' },
+];
 
 export function LocationsPage() {
-  const { role } = useAuth();
+  const { role, user: currentUser } = useAuth();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -34,24 +46,26 @@ export function LocationsPage() {
   const createMutation = useMutation({
     mutationFn: (payload) => referenceService.createLocation(payload),
     onSuccess: (newLoc) => {
-      toast.success(`Location "${newLoc.name}" created`);
+      toast.success(`Location "${newLoc.description}" created successfully`);
       setIsModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['locations'] });
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to create location');
+      const msg = err.response?.data?.error || err.message || 'Failed to create location';
+      toast.error(msg);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }) => referenceService.updateLocation(id, payload),
-    onSuccess: () => {
-      toast.success('Location updated successfully');
+    onSuccess: (updatedLoc) => {
+      toast.success(`Location "${updatedLoc.description}" updated successfully`);
       setEditingLoc(null);
       queryClient.invalidateQueries({ queryKey: ['locations'] });
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to update location');
+      const msg = err.response?.data?.error || err.message || 'Failed to update location';
+      toast.error(msg);
     },
   });
 
@@ -63,7 +77,7 @@ export function LocationsPage() {
       queryClient.invalidateQueries({ queryKey: ['locations'] });
     },
     onError: (err) => {
-      toast.error(err.message || 'Failed to delete location. Existing assets or items reference it.');
+      toast.error(err.response?.data?.error || err.message || 'Failed to delete location. Existing assets reference it.');
     },
   });
 
@@ -78,7 +92,7 @@ export function LocationsPage() {
           <div>
             <h1 className="text-xl font-bold text-ams-text tracking-tight">Facility & Physical Locations</h1>
             <p className="text-xs text-ams-muted mt-0.5">
-              Buildings, floors, test laboratories, and room locations where assets are stored.
+              Enterprise locations, testing benches, floors, seats, and lab facilities where assets are situated.
             </p>
           </div>
         </div>
@@ -101,23 +115,25 @@ export function LocationsPage() {
       <div className="bg-white p-4 rounded-xl border border-ams-border shadow-subtle">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-ams-muted absolute left-2.5 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-ams-muted absolute left-2.5 top-2.5 pointer-events-none" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by facility name, city, room..."
+              placeholder="Search by description, seat, floor, city..."
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
             />
           </div>
 
           <div>
-            <input
-              type="text"
+            <SearchableSelect
+              size="sm"
               value={floorFilter}
-              onChange={(e) => setFloorFilter(e.target.value)}
-              placeholder="Filter by floor (e.g. 2, 3)"
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
+              onChange={(val) => setFloorFilter(val)}
+              options={FLOOR_OPTIONS}
+              placeholder="Filter by Floor No..."
+              allowCustom={true}
+              allowClear={true}
             />
           </div>
         </div>
@@ -146,10 +162,9 @@ export function LocationsPage() {
               <thead>
                 <tr>
                   <th className="w-16">ID</th>
-                  <th>Location Name</th>
-                  <th>Floor</th>
-                  <th>Room / Lab Location</th>
-                  <th>Address</th>
+                  <th>Location Description</th>
+                  <th>Seat No.</th>
+                  <th>Floor No.</th>
                   <th>City</th>
                   <th>Country</th>
                   {canManage && <th className="text-right">Actions</th>}
@@ -159,10 +174,9 @@ export function LocationsPage() {
                 {locations.map((loc) => (
                   <tr key={loc.id} className="hover:bg-brand-very-light/70 transition-colors">
                     <td className="font-mono text-xs text-ams-muted">#{loc.id}</td>
-                    <td className="font-semibold text-ams-text text-xs">{loc.name}</td>
-                    <td className="text-xs">{loc.floor || '—'}</td>
-                    <td className="text-xs text-brand-deep font-medium">{loc.roomLocation || '—'}</td>
-                    <td className="text-xs text-ams-muted">{loc.address || '—'}</td>
+                    <td className="font-semibold text-ams-text text-xs">{loc.description}</td>
+                    <td className="text-xs text-ams-muted">{loc.seatNo || '—'}</td>
+                    <td className="text-xs">{loc.floorNo || '—'}</td>
                     <td className="text-xs text-ams-muted">{loc.city || '—'}</td>
                     <td className="text-xs text-ams-muted">{loc.country || '—'}</td>
                     {canManage && (
@@ -197,6 +211,7 @@ export function LocationsPage() {
       {(isModalOpen || editingLoc) && (
         <LocationModal
           location={editingLoc}
+          currentUser={currentUser}
           onClose={() => {
             setIsModalOpen(false);
             setEditingLoc(null);
@@ -221,7 +236,7 @@ export function LocationsPage() {
               <h3 className="font-bold text-base text-ams-text">Delete Location</h3>
             </div>
             <p className="text-xs text-ams-muted leading-relaxed">
-              Are you sure you want to delete <strong className="text-ams-text">{deletingLoc.name}</strong>? Deletion will be safely blocked if assets or items are placed here.
+              Are you sure you want to delete <strong className="text-ams-text">{deletingLoc.description}</strong>? Deletion will be safely blocked if assets reference it.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -245,31 +260,29 @@ export function LocationsPage() {
   );
 }
 
-function LocationModal({ location, onClose, onSubmit, isSubmitting }) {
+function LocationModal({ location, currentUser, onClose, onSubmit, isSubmitting }) {
   const isEditing = Boolean(location?.id);
 
-  const [name, setName] = useState(location?.name || '');
-  const [address, setAddress] = useState(location?.address || '');
-  const [city, setCity] = useState(location?.city || '');
-  const [country, setCountry] = useState(location?.country || '');
-  const [floor, setFloor] = useState(location?.floor || '');
-  const [roomLocation, setRoomLocation] = useState(location?.roomLocation || '');
+  const [description, setDescription] = useState(location?.description || '');
+  const [seatNo, setSeatNo] = useState(location?.seatNo || '');
+  const [floorNo, setFloorNo] = useState(location?.floorNo || '');
+  const [city, setCity] = useState(location?.city || currentUser?.city || '');
+  const [country, setCountry] = useState(location?.country || currentUser?.country || '');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setErrorMsg('Location name is required');
+    if (!description.trim()) {
+      setErrorMsg('Location description is required');
       return;
     }
 
     onSubmit({
-      name: name.trim(),
-      address: address.trim() || null,
+      description: description.trim(),
+      seatNo: seatNo.trim() || null,
+      floorNo: floorNo.trim() || null,
       city: city.trim() || null,
       country: country.trim() || null,
-      floor: floor.trim() || null,
-      roomLocation: roomLocation.trim() || null,
     });
   };
 
@@ -278,7 +291,7 @@ function LocationModal({ location, onClose, onSubmit, isSubmitting }) {
       <div className="bg-white rounded-xl border border-ams-border shadow-modal max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="px-5 py-4 border-b border-ams-border flex items-center justify-between bg-brand-very-light">
           <h3 className="font-bold text-sm text-ams-text">
-            {isEditing ? `Edit Location: ${location.name}` : 'Create Location'}
+            {isEditing ? `Edit Location: ${location.description}` : 'Create New Location'}
           </h3>
           <button onClick={onClose} className="p-1 text-ams-muted hover:text-ams-text rounded">
             <X className="w-4 h-4" />
@@ -294,49 +307,39 @@ function LocationModal({ location, onClose, onSubmit, isSubmitting }) {
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
           <div>
             <label className="block font-semibold text-ams-text mb-1">
-              Location / Facility Name <span className="text-ams-error">*</span>
+              Location Description <span className="text-ams-error">*</span>
             </label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Headquarters Campus - Building A"
-              className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Headquarters Campus - Main Lab 3B"
+              className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-ams-text mb-1">Floor</label>
-              <input
-                type="text"
-                value={floor}
-                onChange={(e) => setFloor(e.target.value)}
-                placeholder="e.g. 2nd Floor"
-                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
+              <label className="block font-semibold text-ams-text mb-1">Floor No.</label>
+              <SearchableSelect
+                value={floorNo}
+                onChange={(val) => setFloorNo(val)}
+                options={FLOOR_OPTIONS.filter((f) => f.value !== '')}
+                placeholder="Select / type floor..."
+                allowCustom={true}
+                allowClear={true}
               />
             </div>
             <div>
-              <label className="block font-semibold text-ams-text mb-1">Room or Seat</label>
+              <label className="block font-semibold text-ams-text mb-1">Seat No.</label>
               <input
                 type="text"
-                value={roomLocation}
-                onChange={(e) => setRoomLocation(e.target.value)}
-                placeholder="e.g. Lab 3B / Row 14"
-                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
+                value={seatNo}
+                onChange={(e) => setSeatNo(e.target.value)}
+                placeholder="e.g. Bench 12 or S-104"
+                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block font-semibold text-ams-text mb-1">Street Address</label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="e.g. 30000 Mill Creek Ave"
-              className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
-            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -346,8 +349,8 @@ function LocationModal({ location, onClose, onSubmit, isSubmitting }) {
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                placeholder="e.g. Alpharetta"
-                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
+                placeholder="e.g. Noida"
+                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
               />
             </div>
             <div>
@@ -356,8 +359,8 @@ function LocationModal({ location, onClose, onSubmit, isSubmitting }) {
                 type="text"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                placeholder="e.g. United States"
-                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep"
+                placeholder="e.g. India"
+                className="w-full px-3 py-2 rounded-lg border border-ams-border focus:outline-none focus:ring-1 focus:ring-brand-deep bg-white"
               />
             </div>
           </div>
