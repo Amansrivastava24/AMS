@@ -46,6 +46,7 @@ export function InventoryPage() {
       setEditingAsset(null);
       queryClient.invalidateQueries({ queryKey: ['inventory-assets'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to update asset');

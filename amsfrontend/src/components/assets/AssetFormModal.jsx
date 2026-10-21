@@ -7,7 +7,7 @@ import { referenceService } from '../../services/referenceService';
 import { userService } from '../../services/userService';
 import { useAuth } from '../../hooks/useAuth';
 import { ROLES } from '../../permissions/permissions';
-import { X, Package, Check, MapPin, Plus, RotateCcw, AlertCircle, Building2, CheckCircle2 } from 'lucide-react';
+import { X, Package, Check, MapPin, Plus, RotateCcw, AlertCircle, Building2 } from 'lucide-react';
 import { SearchableSelect } from '../common/SearchableSelect';
 import { useToast } from '../common/Toast';
 
@@ -81,7 +81,6 @@ export function AssetFormModal({ asset, onClose, onSubmit, isSubmitting }) {
   const [newLocSeatNo, setNewLocSeatNo] = useState('');
   const [newLocFloorNo, setNewLocFloorNo] = useState('');
   const [inlineLocError, setInlineLocError] = useState('');
-  const [isCreatingInlineLoc, setIsCreatingInlineLoc] = useState(false);
 
   // Authenticated Admin Profile City & Country
   const adminCity = currentUser?.city ? currentUser.city.trim() : '';
@@ -194,53 +193,12 @@ export function AssetFormModal({ asset, onClose, onSubmit, isSubmitting }) {
   const selectedLocationId = watch('locationId');
   const selectedLocation = locations.find((l) => String(l.id) === String(selectedLocationId));
 
-  // Handler to explicitly save a location inline first
-  const handleSaveLocationInline = async () => {
-    setInlineLocError('');
-
-    if (!newLocDescription.trim()) {
-      setInlineLocError('Location description is required.');
-      return;
-    }
-
-    if (isProfileMissingLocation) {
-      setInlineLocError('Admin profile is missing City or Country. Please update your profile before creating a location.');
-      return;
-    }
-
-    setIsCreatingInlineLoc(true);
-    try {
-      const created = await referenceService.createLocation({
-        description: newLocDescription.trim(),
-        seatNo: newLocSeatNo.trim() || null,
-        floorNo: newLocFloorNo.trim() || null,
-      });
-
-      toast.success(`Location created and selected: ${created.description}`);
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-
-      // Automatically select the newly created location
-      setValue('locationId', String(created.id), { shouldValidate: true });
-
-      // Reset inline form and switch back to select mode with newly created location selected
-      setNewLocDescription('');
-      setNewLocSeatNo('');
-      setNewLocFloorNo('');
-      setLocationMode('select');
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Failed to create location';
-      setInlineLocError(msg);
-      toast.error(msg);
-    } finally {
-      setIsCreatingInlineLoc(false);
-    }
-  };
-
-  const onFormSubmit = (data) => {
+  const onFormSubmit = async (data) => {
     if (isUnauthorizedCustodian) return;
 
-    // If user is currently in "Add New Location" mode and hasn't clicked "Save & Select Location" yet
     let newLocationPayload = null;
+    let effectiveLocationId = locationMode === 'new' ? null : (data.locationId ? Number(data.locationId) : null);
+
     if (locationMode === 'new') {
       if (!newLocDescription.trim()) {
         setInlineLocError('Location description is required when creating a new location.');
@@ -250,11 +208,28 @@ export function AssetFormModal({ asset, onClose, onSubmit, isSubmitting }) {
         setInlineLocError('Admin profile is missing City or Country. Please update your profile before creating a location.');
         return;
       }
-      newLocationPayload = {
-        description: newLocDescription.trim(),
-        seatNo: newLocSeatNo.trim() || null,
-        floorNo: newLocFloorNo.trim() || null,
-      };
+
+      if (isEditing) {
+        try {
+          const createdLoc = await referenceService.createLocation({
+            description: newLocDescription.trim(),
+            seatNo: newLocSeatNo.trim() || null,
+            floorNo: newLocFloorNo.trim() || null,
+          });
+          effectiveLocationId = Number(createdLoc.id);
+          queryClient.invalidateQueries({ queryKey: ['locations'] });
+        } catch (err) {
+          const msg = err.response?.data?.error || err.message || 'Failed to create location';
+          setInlineLocError(msg);
+          return;
+        }
+      } else {
+        newLocationPayload = {
+          description: newLocDescription.trim(),
+          seatNo: newLocSeatNo.trim() || null,
+          floorNo: newLocFloorNo.trim() || null,
+        };
+      }
     }
 
     const payload = {
@@ -271,7 +246,7 @@ export function AssetFormModal({ asset, onClose, onSubmit, isSubmitting }) {
       costCenter: data.costCenter && data.costCenter.trim() ? data.costCenter.trim() : null,
       assetOwnerId: isCustodian && asset ? (asset.assetOwnerId ? Number(asset.assetOwnerId) : null) : (data.assetOwnerId ? Number(data.assetOwnerId) : null),
       custodianId: isCustodian && asset ? (asset.custodianId ? Number(asset.custodianId) : null) : (data.custodianId ? Number(data.custodianId) : null),
-      locationId: locationMode === 'new' ? null : (data.locationId ? Number(data.locationId) : null),
+      locationId: effectiveLocationId,
       dateOfChecking: data.dateOfChecking ? data.dateOfChecking : null,
       taggingStatus: data.taggingStatus ? data.taggingStatus : null,
       gatePassNumber: data.gatePassNumber && data.gatePassNumber.trim() ? data.gatePassNumber.trim() : null,
@@ -782,37 +757,6 @@ export function AssetFormModal({ asset, onClose, onSubmit, isSubmitting }) {
                         adminCountry ? 'bg-gray-100 text-ams-text border-gray-200 font-medium' : 'bg-red-50 text-ams-error border-red-200'
                       }`}
                     />
-                  </div>
-                </div>
-
-                {/* Inline Action Bar for Location */}
-                <div className="pt-2 flex items-center justify-between">
-                  <p className="text-[11px] text-ams-muted">
-                    This location will be saved and linked directly to your new asset upon submission.
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLocationMode('select')}
-                      className="px-2.5 py-1 text-ams-muted hover:text-ams-text font-semibold text-[11px]"
-                    >
-                      Cancel New Location
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveLocationInline}
-                      disabled={isCreatingInlineLoc || isProfileMissingLocation || !newLocDescription.trim()}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-60 transition-smooth"
-                    >
-                      {isCreatingInlineLoc ? (
-                        <span>Saving Location...</span>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Save & Select Location</span>
-                        </>
-                      )}
-                    </button>
                   </div>
                 </div>
               </div>

@@ -109,6 +109,7 @@ export function AssetsPage() {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-assets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-assets'] });
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to create asset');
@@ -123,6 +124,7 @@ export function AssetsPage() {
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-assets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-assets'] });
+      queryClient.invalidateQueries({ queryKey: ['locations'] });
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to update asset');

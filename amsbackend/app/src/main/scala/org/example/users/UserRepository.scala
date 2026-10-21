@@ -133,7 +133,8 @@ final class UserRepository(
       departmentId: Option[Option[Long]],
       passwordHash: Option[String],
       city: Option[Option[String]] = None,
-      country: Option[Option[String]] = None
+      country: Option[Option[String]] = None,
+      roleId: Option[Long] = None
   ): Future[Option[User]] = {
     findUserOnlyById(id).flatMap {
       case None => Future.successful(None)
@@ -144,7 +145,8 @@ final class UserRepository(
           departmentId = departmentId.getOrElse(existing.departmentId),
           passwordHash = passwordHash.getOrElse(existing.passwordHash),
           city = city.getOrElse(existing.city),
-          country = country.getOrElse(existing.country)
+          country = country.getOrElse(existing.country),
+          roleId = roleId.getOrElse(existing.roleId)
         )
         database.run(UsersTable.query.filter(_.id === id).update(updated)).map {
           case 0 => None

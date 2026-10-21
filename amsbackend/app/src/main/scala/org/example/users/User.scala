@@ -62,6 +62,7 @@ case class UpdateUserRequest(
     name: Option[String] = None,
     email: Option[String] = None,
     departmentId: Option[Any] = None,
+    roleId: Option[Any] = None,
     password: Option[String] = None,
     city: Option[String] = None,
     country: Option[String] = None
@@ -73,6 +74,14 @@ case class UpdateUserRequest(
     case Some(s: String) if s.trim.isEmpty => Some(None)
     case Some(s: String) => Some(scala.util.Try(s.trim.toLong).toOption)
     case _ => Some(None)
+  }
+
+  def cleanRoleId: Option[Long] = roleId match {
+    case None => None
+    case Some(null) => None
+    case Some(n: Number) => Some(n.longValue())
+    case Some(s: String) if s.trim.nonEmpty => scala.util.Try(s.trim.toLong).toOption
+    case _ => None
   }
 }
 

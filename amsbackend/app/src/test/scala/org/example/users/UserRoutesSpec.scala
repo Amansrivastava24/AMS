@@ -134,6 +134,63 @@ class UserRoutesSpec extends AnyFunSuite with Matchers with ScalatestRouteTest {
     }
   }
 
+  test("PUT /api/users/{id}: SUPER_ADMIN can update user role from GENERAL to ADMIN") {
+    val empId = s"EMP_ROLE_PROMO_${System.currentTimeMillis()}"
+    val createJson = s"""{
+      "employeeId":"$empId",
+      "name":"Role Promo Test",
+      "email":"$empId@example.com",
+      "password":"StrongPassword123!",
+      "roleId":$generalRoleId,
+      "status":"ACTIVE"
+    }"""
+
+    val idRegex = """"id"\s*:\s*(\d+)""".r
+    var createdUserId: Long = 0L
+    Post("/api/users", HttpEntity(ContentTypes.`application/json`, createJson)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.superAdminToken))) ~> userRoutes.route ~> check {
+      status shouldBe StatusCodes.Created
+      val resp = responseAs[String]
+      resp should include("GENERAL")
+      createdUserId = idRegex.findFirstMatchIn(resp).map(_.group(1).toLong).get
+    }
+
+    val updateJson = s"""{"roleId":$adminRoleId}"""
+    Put(s"/api/users/$createdUserId", HttpEntity(ContentTypes.`application/json`, updateJson)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.superAdminToken))) ~> userRoutes.route ~> check {
+      status shouldBe StatusCodes.OK
+      val resp = responseAs[String]
+      resp should include("ADMIN")
+      resp should not include("GENERAL")
+    }
+  }
+
+  test("PUT /api/users/{id}: ADMIN cannot update a user's role") {
+    val empId = s"EMP_ROLE_FAIL_${System.currentTimeMillis()}"
+    val createJson = s"""{
+      "employeeId":"$empId",
+      "name":"Role Fail Test",
+      "email":"$empId@example.com",
+      "password":"StrongPassword123!",
+      "roleId":$generalRoleId,
+      "status":"ACTIVE"
+    }"""
+
+    val idRegex = """"id"\s*:\s*(\d+)""".r
+    var createdUserId: Long = 0L
+    Post("/api/users", HttpEntity(ContentTypes.`application/json`, createJson)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~> userRoutes.route ~> check {
+      status shouldBe StatusCodes.Created
+      createdUserId = idRegex.findFirstMatchIn(responseAs[String]).map(_.group(1).toLong).get
+    }
+
+    val updateJson = s"""{"roleId":$adminRoleId}"""
+    Put(s"/api/users/$createdUserId", HttpEntity(ContentTypes.`application/json`, updateJson)) ~>
+      addHeader(Authorization(OAuth2BearerToken(TestDbHelper.adminToken))) ~> userRoutes.route ~> check {
+      status shouldBe StatusCodes.Forbidden
+    }
+  }
+
   test("PATCH /api/users/{id}/status: ADMIN cannot change status of SUPER_ADMIN") {
     val json = """{"status":"INACTIVE"}"""
     Patch(s"/api/users/${TestDbHelper.superAdminId}/status", HttpEntity(ContentTypes.`application/json`, json)) ~>

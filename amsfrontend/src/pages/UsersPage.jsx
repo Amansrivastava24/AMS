@@ -698,7 +698,7 @@ function UserModal({ user, departments, roles = [], isSuperAdmin, serverError, o
                 size="sm"
                 value={String(roleId)}
                 onChange={(val) => setRoleId(val)}
-                disabled={!isSuperAdmin && !isEditing}
+                disabled={isEditing ? !isSuperAdmin : false}
                 options={roles
                   .filter((r) => isSuperAdmin || r.name === 'GENERAL' || r.name === 'CUSTODIAN')
                   .map((r) => ({
@@ -709,7 +709,9 @@ function UserModal({ user, departments, roles = [], isSuperAdmin, serverError, o
               />
               {!isSuperAdmin && (
                 <span className="text-[10px] text-ams-muted mt-0.5 block">
-                  Admins can only create General or Custodian accounts
+                  {isEditing
+                    ? 'Only Super Admins can modify user authorization roles'
+                    : 'Admins can only create General or Custodian accounts'}
                 </span>
               )}
             </div>

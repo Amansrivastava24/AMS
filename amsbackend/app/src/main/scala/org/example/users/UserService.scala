@@ -168,25 +168,62 @@ final class UserService(
                   if (!validDept) {
                     Future.successful(Left(ValidationError(s"Department ID ${cleanDeptOpt.get.get} does not exist")))
                   } else {
-                    val passwordHash = cleanPassword.map(PasswordService.hashPassword)
-                    val deptUpdate = cleanDeptOpt
+                    // Check role validity and permission if changed
+                    val cleanRoleOpt = req.cleanRoleId
+                    val roleCheck: Future[Either[ServiceError, Option[Long]]] = cleanRoleOpt match {
+                      case None => Future.successful(Right(None))
+                      case Some(newRoleId) if newRoleId == targetUser.roleId =>
+                        Future.successful(Right(None))
+                      case Some(newRoleId) =>
+                        if (callerRole != "SUPER_ADMIN") {
+                          Future.successful(Left(ForbiddenError("Only Super Admins can change user roles")))
+                        } else {
+                          repository.getRoleById(newRoleId).flatMap {
+                            case None =>
+                              Future.successful(Left(ValidationError(s"Role ID $newRoleId does not exist")))
+                            case Some(targetRole) =>
+                              val demotingLastSuperAdminCheck =
+                                if (targetRoleName == "SUPER_ADMIN" && targetRole.name != "SUPER_ADMIN" && targetUser.status == "ACTIVE") {
+                                  repository.countActiveSuperAdmins().map(_ <= 1)
+                                } else {
+                                  Future.successful(false)
+                                }
 
-                    repository.updateDetails(
-                      id = targetId,
-                      name = cleanName,
-                      email = cleanEmail,
-                      departmentId = deptUpdate,
-                      passwordHash = passwordHash,
-                      city = cityUpdate,
-                      country = countryUpdate
-                    ).flatMap {
-                      case Some(_) =>
-                        getUser(targetId).map {
-                          case Some(resp) => Right(resp)
-                          case None => Left(NotFoundError("User not found"))
+                              demotingLastSuperAdminCheck.map { isLast =>
+                                if (isLast) {
+                                  Left(ConflictError("Cannot change role of the last active Super Admin account"))
+                                } else {
+                                  Right(Some(newRoleId))
+                                }
+                              }
+                          }
                         }
-                      case None =>
-                        Future.successful(Left(NotFoundError("User not found")))
+                    }
+
+                    roleCheck.flatMap {
+                      case Left(err) => Future.successful(Left(err))
+                      case Right(roleUpdate) =>
+                        val passwordHash = cleanPassword.map(PasswordService.hashPassword)
+                        val deptUpdate = cleanDeptOpt
+
+                        repository.updateDetails(
+                          id = targetId,
+                          name = cleanName,
+                          email = cleanEmail,
+                          departmentId = deptUpdate,
+                          passwordHash = passwordHash,
+                          city = cityUpdate,
+                          country = countryUpdate,
+                          roleId = roleUpdate
+                        ).flatMap {
+                          case Some(_) =>
+                            getUser(targetId).map {
+                              case Some(resp) => Right(resp)
+                              case None => Left(NotFoundError("User not found"))
+                            }
+                          case None =>
+                            Future.successful(Left(NotFoundError("User not found")))
+                        }
                     }
                   }
                 }
