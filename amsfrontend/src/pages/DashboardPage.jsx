@@ -38,8 +38,8 @@ export function DashboardPage() {
   const totalRecords = data?.totalItems || assets.length;
 
   // Aggregate metrics from physical asset records
-  const verifiedQuantity = assets.filter((a) => a.verificationStatus === 'FOUND').length;
-  const pendingQuantity = assets.filter((a) => a.verificationStatus === 'NOT_CHECKED').length;
+  const verifiedQuantity = data?.totalFound !== undefined ? data.totalFound : assets.filter((a) => a.verificationStatus === 'FOUND').length;
+  const pendingQuantity = data?.totalPending !== undefined ? data.totalPending : assets.filter((a) => a.verificationStatus === 'NOT_CHECKED').length;
   const missingCount = assets.filter((a) => a.verificationStatus === 'MISSING').length;
 
   // Requiring attention: TaggingStatus == 'TR', status is LOST/DAMAGED, or verificationStatus is MISSING

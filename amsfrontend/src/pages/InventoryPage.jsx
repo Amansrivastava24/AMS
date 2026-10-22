@@ -125,9 +125,9 @@ export function InventoryPage() {
   const totalItems = data?.totalItems || 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
-  // Compute metrics from real dataset
-  const verifiedCount = assets.filter((a) => a.verificationStatus === 'FOUND').length;
-  const pendingCount = assets.filter((a) => a.verificationStatus !== 'FOUND').length;
+  // Compute metrics across entire matching dataset (not just the current page slice)
+  const verifiedCount = data?.totalFound !== undefined ? data.totalFound : assets.filter((a) => a.verificationStatus === 'FOUND').length;
+  const pendingCount = data?.totalPending !== undefined ? data.totalPending : assets.filter((a) => a.verificationStatus !== 'FOUND').length;
 
   const handleResetFilters = () => {
     setSearchInput('');
@@ -207,7 +207,7 @@ export function InventoryPage() {
 
           <div className="bg-white p-4 rounded-xl border border-ams-border shadow-subtle">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-ams-muted">Physically Confirmed (Page)</span>
+              <span className="text-xs font-medium text-ams-muted">Physically Confirmed</span>
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
@@ -218,7 +218,7 @@ export function InventoryPage() {
 
           <div className="bg-white p-4 rounded-xl border border-ams-border shadow-subtle">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-ams-muted">Pending / Not Checked (Page)</span>
+              <span className="text-xs font-medium text-ams-muted">Pending / Not Checked</span>
               <Clock className="w-4 h-4 text-amber-600" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
