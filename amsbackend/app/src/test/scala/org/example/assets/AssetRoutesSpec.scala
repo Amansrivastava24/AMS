@@ -48,6 +48,8 @@ class AssetRoutesSpec extends AnyFunSuite with Matchers with ScalatestRouteTest 
       assetRoutes.route ~> check {
       status shouldBe StatusCodes.OK
       responseAs[String] should include("items")
+      responseAs[String] should include("totalFound")
+      responseAs[String] should include("totalPending")
     }
   }
 

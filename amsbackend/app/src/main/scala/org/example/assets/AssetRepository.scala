@@ -12,7 +12,9 @@ final case class AssetPage(
     items: Seq[Asset],
     page: Int,
     pageSize: Int,
-    totalItems: Int
+    totalItems: Int,
+    totalFound: Int = 0,
+    totalPending: Int = 0
 )
 
 final class AssetRepository(
@@ -164,11 +166,21 @@ final class AssetRepository(
       case _           => if (isAsc) q.sortBy(_._1.id.asc) else q.sortBy(_._1.id.desc)
     }
 
+    val qNoVs = if (filter.verificationStatus.isDefined) buildFilteredQuery(filter.copy(verificationStatus = None)) else q
     val itemsAction = sorted.map(_._1).drop(offset).take(safePageSize).result
     val countAction = q.length.result
+    val foundCountAction = qNoVs.filter(_._1.verificationStatus === "FOUND").length.result
+    val pendingCountAction = qNoVs.filter(_._1.verificationStatus =!= "FOUND").length.result
 
-    database.run(itemsAction.zip(countAction)).map { case (items, total) =>
-      AssetPage(items, safePage, safePageSize, total)
+    val queryAction = for {
+      items <- itemsAction
+      total <- countAction
+      found <- foundCountAction
+      pending <- pendingCountAction
+    } yield (items, total, found, pending)
+
+    database.run(queryAction).map { case (items, total, found, pending) =>
+      AssetPage(items, safePage, safePageSize, total, found, pending)
     }
   }
 
