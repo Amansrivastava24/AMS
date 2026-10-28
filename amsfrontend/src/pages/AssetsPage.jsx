@@ -230,7 +230,7 @@ export function AssetsPage() {
                 setSearchInput(e.target.value);
                 setPage(1);
               }}
-              placeholder="Search code, barcode tag, serial, equipment..."
+              placeholder="Search code, asset tag, serial, equipment..."
               className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-ams-border focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep transition-smooth"
             />
             {searchInput && (

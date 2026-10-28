@@ -129,9 +129,6 @@ export function Sidebar({
                   <span className="text-xs font-bold text-ams-text tracking-tight block truncate">
                     Asset Management System
                   </span>
-                  <span className="text-[10px] font-semibold text-brand-deep block leading-tight truncate">
-                    Intelligent Energy, Delivered.
-                  </span>
                 </div>
               </div>
 

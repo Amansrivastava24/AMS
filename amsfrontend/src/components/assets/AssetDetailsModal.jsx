@@ -64,7 +64,7 @@ export function AssetDetailsModal({ asset, onClose }) {
                 <span className="font-semibold text-brand-deep font-mono mt-0.5 block">{asset.assetCode}</span>
               </div>
               <div className="p-3 rounded-lg bg-ams-bg border border-ams-border">
-                <span className="text-ams-muted block text-[11px]">Barcode / Asset Tag</span>
+                <span className="text-ams-muted block text-[11px]">Asset Tag</span>
                 <span className="font-semibold text-ams-text font-mono mt-0.5 block">
                   {asset.assetTag || 'Not tagged'}
                 </span>

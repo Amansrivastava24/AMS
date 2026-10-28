@@ -330,7 +330,7 @@ export function AssetFormModal({ asset, onClose, onSubmit, isSubmitting }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-semibold text-ams-text mb-1">
-                Barcode / Asset Tag
+                Asset Tag
               </label>
               <input
                 type="text"

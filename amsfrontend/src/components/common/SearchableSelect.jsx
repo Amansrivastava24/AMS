@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, X, Check, Loader2 } from 'lucide-react';
 
 /**
@@ -6,6 +7,7 @@ import { ChevronDown, X, Check, Loader2 } from 'lucide-react';
  * Allows users to click its input area and type directly to filter options.
  * Fully supports keyboard navigation (ArrowUp, ArrowDown, Enter, Escape).
  * Matches Landis+Gyr AMS theme with clean green-and-white accents.
+ * Supports optional portal rendering to avoid clipping in modals with overflow:hidden.
  */
 export function SearchableSelect({
   value,
@@ -21,15 +23,24 @@ export function SearchableSelect({
   id,
   allowCustom = false,
   isLoading = false,
+  usePortal = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [dropUp, setDropUp] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+    maxHeight: 224,
+    placement: 'bottom',
+  });
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   // Normalize options into standard shape: { value, label, subLabel, disabled }
   const normalizedOptions = useMemo(() => {
@@ -65,9 +76,42 @@ export function SearchableSelect({
     });
   }, [normalizedOptions, searchQuery]);
 
-  // Detect drop-up vs drop-down depending on viewport bounds
+  // Calculate and update menu position when portaled
+  const updateMenuPosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const defaultMaxHeight = 224; // 14rem (max-h-56)
+
+    const shouldDropUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+
+    let maxHeight = defaultMaxHeight;
+    let top = 0;
+
+    if (shouldDropUp) {
+      maxHeight = Math.min(defaultMaxHeight, Math.max(120, spaceAbove - 16));
+      top = rect.top - 4;
+    } else {
+      maxHeight = Math.min(defaultMaxHeight, Math.max(120, spaceBelow - 16));
+      top = rect.bottom + 4;
+    }
+
+    const width = Math.min(rect.width, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+
+    setMenuPosition({
+      top,
+      left,
+      width,
+      maxHeight,
+      placement: shouldDropUp ? 'top' : 'bottom',
+    });
+  }, []);
+
+  // Detect drop-up vs drop-down for non-portal rendering
   useEffect(() => {
-    if (isOpen && containerRef.current) {
+    if (isOpen && containerRef.current && !usePortal) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       if (spaceBelow < 260 && rect.top > 260) {
@@ -76,12 +120,54 @@ export function SearchableSelect({
         setDropUp(false);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, usePortal]);
+
+  // Synchronously compute position before paint when opening portal
+  useLayoutEffect(() => {
+    if (isOpen && usePortal) {
+      updateMenuPosition();
+    }
+  }, [isOpen, usePortal, updateMenuPosition]);
+
+  // Keep portaled dropdown aligned on scroll or window resize
+  useEffect(() => {
+    if (!isOpen || !usePortal) return;
+
+    const handleScrollOrResize = (e) => {
+      // Don't reposition if scrolling inside the dropdown menu itself
+      if (dropdownRef.current && e?.target && dropdownRef.current.contains(e.target)) {
+        return;
+      }
+      updateMenuPosition();
+    };
+
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        updateMenuPosition();
+      });
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [isOpen, usePortal, updateMenuPosition]);
 
   // Handle outside clicks to close dropdown and restore valid selection label
   useEffect(() => {
     const handleOutsideClick = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      const clickedInsideTrigger = containerRef.current && containerRef.current.contains(event.target);
+      const clickedInsideDropdown = dropdownRef.current && dropdownRef.current.contains(event.target);
+
+      if (!clickedInsideTrigger && !clickedInsideDropdown) {
         setIsOpen(false);
         setSearchQuery('');
       }
@@ -193,6 +279,90 @@ export function SearchableSelect({
   // Value to display in the input box
   const displayValue = isOpen ? searchQuery : (selectedOption ? selectedOption.label : (allowCustom && value ? String(value) : ''));
 
+  const renderOptionsList = () => (
+    <div
+      ref={listRef}
+      style={usePortal ? { maxHeight: `${menuPosition.maxHeight}px` } : undefined}
+      className={`overflow-y-auto py-1 text-xs divide-y divide-gray-50 ${usePortal ? '' : 'max-h-56'}`}
+    >
+      {isLoading ? (
+        <div className="px-3 py-4 text-center text-ams-muted text-xs flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-brand-deep" />
+          <span>Loading options...</span>
+        </div>
+      ) : filteredOptions.length === 0 ? (
+        <div className="px-3 py-4 text-center text-ams-muted text-xs font-medium">
+          {emptyMessage}
+        </div>
+      ) : (
+        filteredOptions.map((opt, index) => {
+          const isSelected = selectedOption && String(selectedOption.value) === String(opt.value);
+          const isHighlighted = index === highlightedIndex;
+
+          return (
+            <div
+              key={`${opt.value}-${index}`}
+              data-option-index={index}
+              onClick={() => handleSelect(opt)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
+                opt.disabled
+                  ? 'opacity-40 cursor-not-allowed bg-gray-50'
+                  : isHighlighted
+                  ? 'bg-brand-pale/70 text-brand-deep font-medium'
+                  : isSelected
+                  ? 'bg-brand-pale/30 text-brand-deep font-medium'
+                  : 'text-ams-text hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex flex-col truncate pr-2">
+                <span className="truncate">
+                  {renderHighlighted(opt.label, searchQuery)}
+                </span>
+                {opt.subLabel && (
+                  <span className="text-[10px] text-ams-muted truncate">
+                    {renderHighlighted(opt.subLabel, searchQuery)}
+                  </span>
+                )}
+              </div>
+
+              {isSelected && (
+                <Check className="w-3.5 h-3.5 text-brand-primary shrink-0 ml-1" />
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+
+  const menuElement = (
+    <div
+      ref={dropdownRef}
+      style={
+        usePortal
+          ? {
+              position: 'fixed',
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`,
+              width: `${menuPosition.width}px`,
+              transform: menuPosition.placement === 'top' ? 'translateY(-100%)' : undefined,
+              zIndex: 9999,
+            }
+          : { minWidth: '100%' }
+      }
+      className={
+        usePortal
+          ? 'bg-white rounded-lg border border-ams-border shadow-xl overflow-hidden animation-fadeIn'
+          : `absolute z-[70] left-0 right-0 bg-white rounded-lg border border-ams-border shadow-xl overflow-hidden animation-fadeIn ${
+              dropUp ? 'bottom-full mb-1' : 'top-full mt-1'
+            }`
+      }
+    >
+      {renderOptionsList()}
+    </div>
+  );
+
   return (
     <div
       ref={containerRef}
@@ -281,66 +451,11 @@ export function SearchableSelect({
         </div>
       </div>
 
-      {/* Floating Options Panel */}
+      {/* Options Panel (rendered inline or through portal) */}
       {isOpen && !disabled && (
-        <div
-          className={`absolute z-[70] left-0 right-0 bg-white rounded-lg border border-ams-border shadow-xl overflow-hidden animation-fadeIn ${
-            dropUp ? 'bottom-full mb-1' : 'top-full mt-1'
-          }`}
-          style={{ minWidth: '100%' }}
-        >
-          {/* Options List */}
-          <div ref={listRef} className="max-h-56 overflow-y-auto py-1 text-xs divide-y divide-gray-50">
-            {isLoading ? (
-              <div className="px-3 py-4 text-center text-ams-muted text-xs flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-brand-deep" />
-                <span>Loading options...</span>
-              </div>
-            ) : filteredOptions.length === 0 ? (
-              <div className="px-3 py-4 text-center text-ams-muted text-xs font-medium">
-                {emptyMessage}
-              </div>
-            ) : (
-              filteredOptions.map((opt, index) => {
-                const isSelected = selectedOption && String(selectedOption.value) === String(opt.value);
-                const isHighlighted = index === highlightedIndex;
-
-                return (
-                  <div
-                    key={`${opt.value}-${index}`}
-                    data-option-index={index}
-                    onClick={() => handleSelect(opt)}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    className={`px-3 py-2 flex items-center justify-between cursor-pointer transition-colors ${
-                      opt.disabled
-                        ? 'opacity-40 cursor-not-allowed bg-gray-50'
-                        : isHighlighted
-                        ? 'bg-brand-pale/70 text-brand-deep font-medium'
-                        : isSelected
-                        ? 'bg-brand-pale/30 text-brand-deep font-medium'
-                        : 'text-ams-text hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex flex-col truncate pr-2">
-                      <span className="truncate">
-                        {renderHighlighted(opt.label, searchQuery)}
-                      </span>
-                      {opt.subLabel && (
-                        <span className="text-[10px] text-ams-muted truncate">
-                          {renderHighlighted(opt.subLabel, searchQuery)}
-                        </span>
-                      )}
-                    </div>
-
-                    {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-brand-primary shrink-0 ml-1" />
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+        usePortal && typeof document !== 'undefined'
+          ? createPortal(menuElement, document.body)
+          : menuElement
       )}
     </div>
   );

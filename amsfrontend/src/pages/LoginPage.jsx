@@ -78,9 +78,6 @@ export function LoginPage() {
             <span className="font-bold text-sm tracking-tight text-ams-text block leading-none">
               Asset Management System
             </span>
-            <span className="text-[10px] text-brand-deep font-semibold uppercase tracking-wider block mt-0.5">
-              Intelligent Energy, Delivered.
-            </span>
           </div>
         </div>
         <ApiStatusBadge />
@@ -115,7 +112,7 @@ export function LoginPage() {
               </h1>
 
               <p className="mt-2 text-base text-brand-light font-medium tracking-wide">
-                Intelligent Energy, Delivered.
+                Manage Assets , Better.
               </p>
             </div>
 
@@ -123,7 +120,7 @@ export function LoginPage() {
             <div className="mt-10 pt-5 border-t border-white/15 relative z-10 flex items-center justify-between">
               <div>
                 <span className="text-[10px] uppercase tracking-wider text-brand-light/70 block font-medium">Landis+Gyr</span>
-                <span className="text-xs font-semibold text-white tracking-wide">Intelligent Energy, Delivered.</span>
+                <span className="text-xs font-semibold text-white tracking-wide">Enterprise Asset Tracking</span>
               </div>
               <Cpu className="w-5 h-5 text-brand-primary/70" />
             </div>
@@ -136,8 +133,8 @@ export function LoginPage() {
               <h2 className="text-xl sm:text-2xl font-bold text-ams-text tracking-tight">
                 Asset Management System
               </h2>
-              <p className="text-xs text-brand-deep font-semibold mt-1">
-                Intelligent Energy, Delivered.
+              <p className="text-xs text-ams-muted mt-1">
+                Sign in to manage and verify enterprise physical assets
               </p>
             </div>
 

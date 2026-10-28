@@ -689,6 +689,7 @@ function UserModal({ user, departments, roles = [], isSuperAdmin, serverError, o
                   })),
                 ]}
                 placeholder="Select Department..."
+                usePortal={true}
               />
             </div>
 
@@ -706,6 +707,7 @@ function UserModal({ user, departments, roles = [], isSuperAdmin, serverError, o
                     label: r.name,
                   }))}
                 allowClear={false}
+                usePortal={true}
               />
               {!isSuperAdmin && (
                 <span className="text-[10px] text-ams-muted mt-0.5 block">
@@ -752,8 +754,8 @@ function RoleChangeModal({ user, roles = [], onClose, onSubmit, isSubmitting }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ams-text/40 backdrop-blur-xs">
-      <div className="bg-white rounded-xl border border-ams-border shadow-modal max-w-sm w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="px-5 py-4 border-b border-ams-border flex items-center justify-between bg-purple-50">
+      <div className="bg-white rounded-xl border border-ams-border shadow-modal max-w-sm w-full animate-in fade-in zoom-in-95 duration-150">
+        <div className="px-5 py-4 border-b border-ams-border flex items-center justify-between bg-purple-50 rounded-t-xl">
           <div className="flex items-center gap-2 text-purple-700">
             <Shield className="w-5 h-5" />
             <h3 className="font-bold text-sm">Elevate / Modify Role</h3>
@@ -779,6 +781,7 @@ function RoleChangeModal({ user, roles = [], onClose, onSubmit, isSubmitting }) 
                 subLabel: r.name === 'SUPER_ADMIN' ? 'Full System & Role Control' : r.name === 'ADMIN' ? 'Asset & Ordinary User Management' : r.name === 'CUSTODIAN' ? 'Assigned Asset Inspection & Update' : 'Inventory Viewing & Export only',
               }))}
               allowClear={false}
+              usePortal={true}
             />
           </div>
 

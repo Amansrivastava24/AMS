@@ -498,7 +498,7 @@ export function InventoryPage() {
               <thead>
                 <tr>
                   <th>Asset Code</th>
-                  <th>Barcode Tag</th>
+                  <th>Asset Tag</th>
                   <th>Serial Number</th>
                   <th>Description / Name</th>
                   <th>Status</th>
@@ -630,7 +630,7 @@ export function InventoryPage() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-ams-muted block text-[11px]">Barcode / Asset Tag</span>
+                  <span className="text-ams-muted block text-[11px]">Asset Tag</span>
                   <span className="font-mono font-semibold text-sm text-ams-text">
                     {inspectingAsset.assetTag || 'Not tagged'}
                   </span>

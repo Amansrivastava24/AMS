@@ -46,9 +46,6 @@ export function Topbar({ onOpenMobile, title, collapsed, onToggleCollapse }) {
           <h1 className="text-lg font-bold text-ams-text tracking-tight leading-tight">
             {title || 'Asset Management System'}
           </h1>
-          <span className="text-[10px] text-brand-deep font-semibold hidden md:block leading-none">
-            Intelligent Energy, Delivered.
-          </span>
         </div>
       </div>
 
